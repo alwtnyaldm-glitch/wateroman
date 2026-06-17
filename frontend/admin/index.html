@@ -25,11 +25,11 @@
           <label class="form-label">كلمة المرور</label>
           <input type="password" id="password" class="form-control" required placeholder="أدخل كلمة المرور">
         </div>
-        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:1rem;">
+        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;">
           تسجيل الدخول
         </button>
       </form>
-      <p style="text-align:center;color:#888;margin-top:1rem;font-size:0.85rem;">
+      <p style="text-align:center;color:var(--text-muted);margin-top:16px;font-size:13px;">
         كلمة المرور الافتراضية: admin123
       </p>
     </div>
@@ -66,7 +66,7 @@
           </ul>
         </nav>
         <div class="sidebar-footer">
-          <a href="../index.html" class="sidebar-link" style="color:var(--accent);">
+          <a href="../index.html" class="sidebar-link" style="color:var(--primary-light);">
             <span class="icon">🌐</span> عرض الموقع
           </a>
           <button id="logoutBtn" class="sidebar-link" style="background:none;border:none;width:100%;text-align:right;">
@@ -111,32 +111,31 @@
           </div>
 
           <div class="form-container">
-            <h3 style="margin-bottom:1rem;">🌍 الدول الأكثر زيارة</h3>
+            <h3>🌍 الدول الأكثر زيارة</h3>
             <div id="countryList" class="country-list">
-              <p style="color:#888;text-align:center;">جاري التحميل...</p>
+              <p style="color:var(--text-muted);text-align:center;">جاري التحميل...</p>
             </div>
           </div>
         </div>
 
-        <!-- ========== LIVE TRACKING TAB ========== -->
+        <!-- Tracking Tab -->
         <div id="tracking" class="tab-content">
           <div class="tracking-header">
             <h2 class="tracking-title">👥 العملاء</h2>
-            <div style="display:flex;gap:0.5rem;align-items:center;">
-              <span class="live-count" style="background:var(--primary);">
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span class="live-count">
                 <span id="onlineCount">0</span> متصل
               </span>
-              <span class="live-count" style="background:var(--gray-500);">
+              <span class="live-count total">
                 <span id="totalCount">0</span> الإجمالي
               </span>
             </div>
           </div>
           
-          <p style="color:#888;font-size:0.85rem;margin-bottom:1rem;">
+          <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">
             ⏱️ يتم التحديث تلقائياً كل ثانية - البيانات تبقى ظاهرة حتى بعد مغادرة العميل
           </p>
           
-          <!-- Visitors Grid - Mobile Cards -->
           <div id="visitorsGrid" class="visitors-grid">
             <div class="empty-state">
               <span>👥</span>
@@ -148,9 +147,8 @@
 
         <!-- Products Tab -->
         <div id="products" class="tab-content">
-          <!-- Add/Edit Product Form -->
-          <div class="form-container" id="productFormContainer" style="margin-bottom:1rem;">
-            <h3 style="margin-bottom:1rem;" id="productFormTitle">➕ إضافة منتج جديد</h3>
+          <div class="form-container">
+            <h3 id="productFormTitle">➕ إضافة منتج جديد</h3>
             <form id="productForm">
               <input type="hidden" id="editProductId" value="">
               <div class="form-row">
@@ -185,7 +183,7 @@
                 <label class="form-label">الفئة</label>
                 <input type="text" id="productCategory" class="form-control" placeholder="مثال: natural, mineral">
               </div>
-              <div style="display:flex;gap:0.5rem;">
+              <div style="display:flex;gap:8px;">
                 <button type="submit" class="btn btn-success" style="flex:1;">
                   💾 حفظ المنتج
                 </button>
@@ -196,11 +194,10 @@
             </form>
           </div>
           
-          <!-- Products List -->
           <div class="table-container">
             <div class="table-header">
               <h3 class="table-title">📦 قائمة المنتجات</h3>
-              <span id="productsCount" style="color:#888;font-size:0.85rem;">0 منتج</span>
+              <span id="productsCount" style="color:var(--text-muted);font-size:13px;">0 منتج</span>
             </div>
             <table class="data-table">
               <thead>
@@ -220,10 +217,10 @@
           </div>
         </div>
 
-        <!-- ========== BANNED USERS TAB ========== -->
+        <!-- Banned Tab -->
         <div id="banned" class="tab-content">
           <div class="form-container">
-            <h3 style="margin-bottom:1rem;">🚫 حظر مستخدم جديد</h3>
+            <h3>🚫 حظر مستخدم جديد</h3>
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">معرف الجلسة</label>
@@ -243,10 +240,12 @@
             </button>
           </div>
           
-          <div class="table-container" style="margin-top:1rem;">
+          <div class="table-container">
             <div class="table-header">
               <h3 class="table-title">📋 المستخدمين المحظورين</h3>
-              <span id="bannedCount" style="background:var(--danger);color:white;padding:0.25rem 0.75rem;border-radius:1rem;font-size:0.85rem;">0 محظور</span>
+              <span class="live-count" style="background:var(--danger);">
+                <span id="bannedCount">0</span> محظور
+              </span>
             </div>
             <table class="data-table">
               <thead>
@@ -274,7 +273,7 @@
                 🚪 خروج جميع الأجهزة
               </button>
             </div>
-            <div id="devicesContainer" style="padding:1rem;">
+            <div id="devicesContainer" style="padding:16px;">
               <div class="empty-state">
                 <span>📱</span>
                 <p>جاري تحميل الأجهزة...</p>
@@ -285,7 +284,7 @@
       </main>
     </div>
 
-    <!-- Sound Toggle Button -->
+    <!-- Sound Toggle -->
     <button class="sound-toggle" onclick="toggleSound()" title="تشغيل/إيقاف الأصوات">
       🔊
     </button>
@@ -293,7 +292,6 @@
 
   <script src="admin.js"></script>
   <script>
-    // Manual ban function with confirmation
     function manualBan() {
       const sessionId = document.getElementById('banSessionId').value.trim();
       const ip = document.getElementById('banIp').value.trim();
@@ -319,7 +317,6 @@
         document.getElementById('banIp').value = '';
         document.getElementById('banMessage').value = '';
         
-        // Refresh visitors list
         updateVisitorsList();
       }
     }

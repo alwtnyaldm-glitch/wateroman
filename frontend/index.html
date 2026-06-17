@@ -20,7 +20,7 @@
       </div>
       <div class="connection-status">
         <span class="status-dot"></span>
-        <span>غير متصل</span>
+        <span>جاري التحميل...</span>
       </div>
     </div>
   </header>
@@ -29,27 +29,30 @@
   <nav class="nav">
     <div class="container">
       <ul class="nav-list">
-        <li><a href="index.html" class="nav-link active">الرئيسية</a></li>
-        <li><a href="pages/delivery.html" class="nav-link">بيانات التوصيل</a></li>
-        <li><a href="pages/payment.html" class="nav-link">الدفع</a></li>
-        <li><a href="pages/verification.html" class="nav-link">التحقق</a></li>
-        <li><a href="admin/index.html" class="nav-link">لوحة التحكم</a></li>
+        <li><a href="index.html" class="nav-link active">🏠 الرئيسية</a></li>
+        <li><a href="pages/delivery.html" class="nav-link">📦 التوصيل</a></li>
+        <li><a href="pages/payment.html" class="nav-link">💳 الدفع</a></li>
+        <li><a href="pages/verification.html" class="nav-link">🔐 التحقق</a></li>
       </ul>
     </div>
   </nav>
 
   <!-- Hero Section -->
   <section class="hero">
-    <div class="container">
-      <h2>💧 مياه نقية من قلب الطبيعة العمانية</h2>
-      <p>استمتع بأفضل أنواع المياه المعدنية والطبيعية من ينابيع سلطنة عمان</p>
+    <div class="container hero-content">
+      <div class="hero-badge">
+        <span>✨</span>
+        <span>منتجات طبيعية 100% من سلطنة عمان</span>
+      </div>
+      <h2>مياه نقية من قلب الطبيعة العمانية</h2>
+      <p>استمتع بأفضل أنواع المياه المعدنية والطبيعية من ينابيع سلطنة عمان العريقة</p>
     </div>
   </section>
 
   <!-- Products Section -->
   <section class="products-section">
     <div class="container">
-      <h2 class="section-title">منتجاتنا</h2>
+      <h2 class="section-title">🌊 منتجاتنا المميزة</h2>
       <div class="products-grid" id="productsContainer">
         <div class="loading">
           <div class="spinner"></div>
@@ -62,7 +65,7 @@
   <!-- Footer -->
   <footer class="footer">
     <div class="container">
-      <p>© 2024 مياه واحة عمان - جميع الحقوق محفوظة</p>
+      <p>© 2024 مياه واحة عمان - جميع الحقوق محفوظة 💧</p>
     </div>
   </footer>
 
@@ -78,23 +81,29 @@
       const products = await fetchProducts();
       
       if (products.length === 0) {
-        productsContainer.innerHTML = '<p style="text-align:center;padding:2rem;">لا توجد منتجات متاحة</p>';
+        productsContainer.innerHTML = `
+          <div style="text-align:center;padding:40px;color:var(--text-secondary);">
+            <p style="font-size:18px;">لا توجد منتجات متاحة حالياً</p>
+          </div>
+        `;
         return;
       }
       
       productsContainer.innerHTML = products.map(product => `
         <div class="product-card page">
-          <img src="${product.image_url || 'https://via.placeholder.com/400x200?text=Water'}" 
+          <img src="${product.image_url || 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=400'}" 
                alt="${product.name_ar}" 
                class="product-image"
-               onerror="this.src='https://via.placeholder.com/400x200?text=Water'">
+               onerror="this.src='https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=400'">
           <div class="product-info">
             <h3 class="product-name">${product.name_ar}</h3>
             <p class="product-description">${product.description || ''}</p>
-            <p class="product-price">${product.price} ر.ع</p>
-            <button class="btn btn-primary" onclick="orderProduct(${product.id})">
-              اطلب الآن
-            </button>
+            <div class="product-footer">
+              <span class="product-price">${product.price} ر.ع</span>
+              <button class="btn btn-primary" onclick="orderProduct(${product.id})">
+                اطلب الآن
+              </button>
+            </div>
           </div>
         </div>
       `).join('');

