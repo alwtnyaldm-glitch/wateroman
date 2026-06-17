@@ -277,6 +277,10 @@ io.on('connection', (socket) => {
           const sessionToken = uuidv4();
           clientInfo.isAdmin = true;
           
+          // IMPORTANT: Add to admin connections for real-time updates
+          adminConnections.set(socket.id, socket);
+          console.log("🔌 Admin logged in, connections: " + adminConnections.size);
+          
           // Save admin session
           await pool.query(
             'INSERT INTO admin_sessions (session_token, device_info, ip_address, country, is_current) VALUES ($1, $2, $3, $4, true)',
