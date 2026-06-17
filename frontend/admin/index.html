@@ -118,25 +118,30 @@
           </div>
         </div>
 
-        <!-- ========== LIVE TRACKING TAB - MOBILE CARDS ========== -->
+        <!-- ========== LIVE TRACKING TAB ========== -->
         <div id="tracking" class="tab-content">
           <div class="tracking-header">
-            <h2 class="tracking-title">👥 العملاء المتصلون الآن</h2>
-            <span class="live-count">
-              <span id="onlineCount">0</span> متصل
-            </span>
+            <h2 class="tracking-title">👥 العملاء</h2>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+              <span class="live-count" style="background:var(--primary);">
+                <span id="onlineCount">0</span> متصل
+              </span>
+              <span class="live-count" style="background:var(--gray-500);">
+                <span id="totalCount">0</span> الإجمالي
+              </span>
+            </div>
           </div>
           
           <p style="color:#888;font-size:0.85rem;margin-bottom:1rem;">
-            ⏱️ يتم التحديث تلقائياً كل ثانية
+            ⏱️ يتم التحديث تلقائياً كل ثانية - البيانات تبقى ظاهرة حتى بعد مغادرة العميل
           </p>
           
           <!-- Visitors Grid - Mobile Cards -->
           <div id="visitorsGrid" class="visitors-grid">
             <div class="empty-state">
               <span>👥</span>
-              <h3>لا يوجد زوار متصلين</h3>
-              <p>العملاء المتصلون حالياً سيظهرون هنا</p>
+              <h3>لا يوجد زوار</h3>
+              <p>العملاء سيظهرون هنا</p>
             </div>
           </div>
         </div>
@@ -164,10 +169,10 @@
           </div>
         </div>
 
-        <!-- Banned Tab -->
+        <!-- ========== BANNED USERS TAB ========== -->
         <div id="banned" class="tab-content">
           <div class="form-container">
-            <h3 style="margin-bottom:1rem;">🚫 حظر مستخدم</h3>
+            <h3 style="margin-bottom:1rem;">🚫 حظر مستخدم جديد</h3>
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">معرف الجلسة</label>
@@ -189,7 +194,10 @@
           
           <div class="table-container" style="margin-top:1rem;">
             <div class="table-header">
-              <h3 class="table-title">📋 المستخدمين المحظورين</h3>
+              <h3 class="table-title">📋 المستخدمين المحظورين حالياً</h3>
+              <button class="btn btn-secondary btn-sm" onclick="loadBannedUsers()">
+                🔄 تحديث
+              </button>
             </div>
             <table class="data-table">
               <thead>
@@ -197,11 +205,11 @@
                   <th>#</th>
                   <th>معرف الجلسة / IP</th>
                   <th>السبب</th>
-                  <th>إجراءات</th>
+                  <th>إجراء</th>
                 </tr>
               </thead>
               <tbody id="bannedTableBody">
-                <tr><td colspan="4" class="empty-state"><span>✅</span><p>لا يوجد مستخدمين محظورين</p></td></tr>
+                <tr><td colspan="4" class="empty-state"><span>🚫</span><p>جاري تحميل القائمة...</p></td></tr>
               </tbody>
             </table>
           </div>
@@ -211,7 +219,7 @@
         <div id="devices" class="tab-content">
           <div class="table-container">
             <div class="table-header">
-              <h3 class="table-title">📱 الأجهزة المتصلة</h3>
+              <h3 class="table-title">📱 الأجهزة المتصلة بلوحة التحكم</h3>
               <button class="btn btn-danger btn-sm" onclick="logoutAllDevices()">
                 🚪 خروج جميع الأجهزة
               </button>
@@ -235,15 +243,18 @@
 
   <script src="admin.js"></script>
   <script>
+    // Manual ban function with confirmation
     function manualBan() {
-      const sessionId = document.getElementById('banSessionId').value;
-      const ip = document.getElementById('banIp').value;
-      const message = document.getElementById('banMessage').value || 'تم حظرك من الموقع';
+      const sessionId = document.getElementById('banSessionId').value.trim();
+      const ip = document.getElementById('banIp').value.trim();
+      const message = document.getElementById('banMessage').value.trim() || 'تم حظرك من الموقع';
       
       if (!sessionId && !ip) {
         alert('يرجى إدخال معرف الجلسة أو عنوان IP');
         return;
       }
+      
+      if (!confirm('هل أنت متأكد من حظر هذا المستخدم؟')) return;
       
       if (socket) {
         socket.emit('user:ban', {
@@ -252,10 +263,14 @@
           reason: 'Manual ban by admin',
           customMessage: message
         });
+        
         alert('تم حظر المستخدم بنجاح');
         document.getElementById('banSessionId').value = '';
         document.getElementById('banIp').value = '';
         document.getElementById('banMessage').value = '';
+        
+        // Refresh visitors list
+        updateVisitorsList();
       }
     }
   </script>

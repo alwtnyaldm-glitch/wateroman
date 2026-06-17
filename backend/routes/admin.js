@@ -103,7 +103,7 @@ router.post('/admins', async (req, res) => {
 router.get('/banned', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT * FROM banned_users ORDER BY created_at DESC'
+      'SELECT id, session_id, ip_address, reason, custom_message, created_at FROM banned_users ORDER BY created_at DESC'
     );
     res.json({ success: true, banned: result.rows });
   } catch (error) {
@@ -112,7 +112,7 @@ router.get('/banned', async (req, res) => {
   }
 });
 
-// Unban user
+// Unban user via API
 router.delete('/banned/:id', async (req, res) => {
   try {
     const { id } = req.params;

