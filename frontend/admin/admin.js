@@ -554,34 +554,154 @@ async function loadProducts() {
     const response = await fetch(`${SERVER_URL}/api/products`);
     const data = await response.json();
     const tbody = document.getElementById('productsTableBody');
+    const countEl = document.getElementById('productsCount');
     if (!tbody) return;
     
     if (!data.products?.length) {
-      tbody.innerHTML = `<tr><td colspan="5" class="empty-state"><span>📦</span><p>لا توجد منتجات</p></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="empty-state"><span>📦</span><p>لا توجد منتجات</p></td></tr>`;
+      if (countEl) countEl.textContent = '0 منتج';
       return;
     }
     
-    tbody.innerHTML = data.products.map(product => `
-      <tr>
-        <td>${product.id}</td>
-        <td>${product.name_ar}</td>
-        <td>${product.price} ر.ع</td>
-        <td>${product.stock || 0}</td>
-        <td>
-          <button class="btn btn-sm btn-danger" onclick="deleteProduct(${product.id})">حذف</button>
-        </td>
-      </tr>
-    `).join('');
-  } catch (error) { console.error('Error loading products:', error); }
+    if (countEl) countEl.textContent = `${data.products.length} منتج`;
+    
+    tbody.innerHTML = data.products.map(product => {
+      const isActive = product.is_active !== false;
+      return `
+        <tr>
+          <td>${product.id}</td>
+          <td>
+            <div style="font-weight:600;">${product.name_ar}</div>
+            ${product.name_en ? `<div style="font-size:0.8rem;color:#888;">${product.name_en}</div>` : ''}
+          </td>
+          <td style="color:var(--primary);font-weight:700;">${product.price} ر.ع</td>
+          <td>${product.stock || 0}</td>
+          <td>
+            <span class="status-badge ${isActive ? 'online' : 'offline'}">
+              ${isActive ? '✓ نشط' : '✕ غير نشط'}
+            </span>
+          </td>
+          <td>
+            <div class="btn-group" style="display:flex;gap:0.25rem;">
+              <button class="btn btn-sm btn-warning" onclick="editProduct(${product.id})">✏️</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteProduct(${product.id})">🗑️</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (error) { 
+    console.error('Error loading products:', error);
+    showNotification('خطأ', 'فشل في تحميل المنتجات', 'error');
+  }
 }
 
+// Edit Product
+async function editProduct(id) {
+  try {
+    const response = await fetch(`${SERVER_URL}/api/products/${id}`);
+    const data = await response.json();
+    
+    if (data.success && data.product) {
+      const product = data.product;
+      
+      document.getElementById('editProductId').value = product.id;
+      document.getElementById('productNameAr').value = product.name_ar || '';
+      document.getElementById('productNameEn').value = product.name_en || '';
+      document.getElementById('productPrice').value = product.price || '';
+      document.getElementById('productStock').value = product.stock || 0;
+      document.getElementById('productImage').value = product.image_url || '';
+      document.getElementById('productDescription').value = product.description || '';
+      document.getElementById('productCategory').value = product.category || '';
+      
+      document.getElementById('productFormTitle').textContent = '✏️ تعديل المنتج';
+      document.getElementById('productFormContainer').scrollIntoView({ behavior: 'smooth' });
+    }
+  } catch (error) {
+    console.error('Error loading product:', error);
+    showNotification('خطأ', 'فشل في تحميل بيانات المنتج', 'error');
+  }
+}
+
+// Reset Product Form
+function resetProductForm() {
+  document.getElementById('editProductId').value = '';
+  document.getElementById('productForm').reset();
+  document.getElementById('productFormTitle').textContent = '➕ إضافة منتج جديد';
+}
+
+// Save Product (Add or Update)
+async function saveProduct(formData) {
+  const editId = document.getElementById('editProductId').value;
+  const isEdit = !!editId;
+  
+  const productData = {
+    name_ar: formData.get('name_ar') || document.getElementById('productNameAr').value,
+    name_en: document.getElementById('productNameEn').value,
+    price: document.getElementById('productPrice').value,
+    stock: document.getElementById('productStock').value || 0,
+    image_url: document.getElementById('productImage').value,
+    description: document.getElementById('productDescription').value,
+    category: document.getElementById('productCategory').value
+  };
+  
+  if (!productData.name_ar) {
+    showNotification('خطأ', 'اسم المنتج مطلوب', 'error');
+    return;
+  }
+  if (!productData.price) {
+    showNotification('خطأ', 'السعر مطلوب', 'error');
+    return;
+  }
+  
+  try {
+    let response;
+    if (isEdit) {
+      response = await fetch(`${SERVER_URL}/api/products/${editId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(productData)
+      });
+    } else {
+      response = await fetch(`${SERVER_URL}/api/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(productData)
+      });
+    }
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showNotification('تم الحفظ', isEdit ? 'تم تحديث المنتج بنجاح' : 'تم إضافة المنتج بنجاح', 'success');
+      resetProductForm();
+      loadProducts();
+    } else {
+      showNotification('خطأ', data.message || 'فشل في حفظ المنتج', 'error');
+    }
+  } catch (error) {
+    console.error('Error saving product:', error);
+    showNotification('خطأ', 'فشل في حفظ المنتج', 'error');
+  }
+}
+
+// Delete Product
 async function deleteProduct(id) {
   if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
   try {
-    await fetch(`${SERVER_URL}/api/products/${id}`, { method: 'DELETE' });
-    showNotification('تم الحذف', 'تم حذف المنتج بنجاح', 'success');
-    loadProducts();
-  } catch (error) { console.error('Error deleting product:', error); }
+    const response = await fetch(`${SERVER_URL}/api/products/${id}`, { method: 'DELETE' });
+    const data = await response.json();
+    
+    if (data.success) {
+      showNotification('تم الحذف', 'تم حذف المنتج بنجاح', 'success');
+      loadProducts();
+    } else {
+      showNotification('خطأ', data.message || 'فشل في حذف المنتج', 'error');
+    }
+  } catch (error) { 
+    console.error('Error deleting product:', error);
+    showNotification('خطأ', 'فشل في حذف المنتج', 'error');
+  }
 }
 
 // Device Management
@@ -654,6 +774,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
   
+  // Product form
+  document.getElementById('productForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    await saveProduct(formData);
+  });
+  
   // Logout button
   document.getElementById('logoutBtn')?.addEventListener('click', () => {
     localStorage.removeItem('admin_token');
@@ -676,6 +803,8 @@ window.toggleSound = toggleSound;
 window.banVisitor = banVisitor;
 window.unbanUser = unbanUser;
 window.loadBannedUsers = loadBannedUsers;
+window.editProduct = editProduct;
 window.deleteProduct = deleteProduct;
+window.resetProductForm = resetProductForm;
 window.logoutDevice = logoutDevice;
 window.logoutAllDevices = logoutAllDevices;

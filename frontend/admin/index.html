@@ -148,22 +148,73 @@
 
         <!-- Products Tab -->
         <div id="products" class="tab-content">
+          <!-- Add/Edit Product Form -->
+          <div class="form-container" id="productFormContainer" style="margin-bottom:1rem;">
+            <h3 style="margin-bottom:1rem;" id="productFormTitle">➕ إضافة منتج جديد</h3>
+            <form id="productForm">
+              <input type="hidden" id="editProductId" value="">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">اسم المنتج (عربي) *</label>
+                  <input type="text" id="productNameAr" class="form-control" required placeholder="مثال: مياه واحة عمان">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">اسم المنتج (إنجليزي)</label>
+                  <input type="text" id="productNameEn" class="form-control" placeholder="Oman Oasis Water">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">السعر (ر.ع) *</label>
+                  <input type="number" id="productPrice" class="form-control" required step="0.01" min="0" placeholder="2.50">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">المخزون</label>
+                  <input type="number" id="productStock" class="form-control" min="0" placeholder="100">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">رابط الصورة</label>
+                <input type="url" id="productImage" class="form-control" placeholder="https://example.com/image.jpg">
+              </div>
+              <div class="form-group">
+                <label class="form-label">الوصف</label>
+                <textarea id="productDescription" class="form-control" rows="2" placeholder="وصف المنتج..."></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label">الفئة</label>
+                <input type="text" id="productCategory" class="form-control" placeholder="مثال: natural, mineral">
+              </div>
+              <div style="display:flex;gap:0.5rem;">
+                <button type="submit" class="btn btn-success" style="flex:1;">
+                  💾 حفظ المنتج
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="resetProductForm()" style="flex:1;">
+                  🔄 إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+          
+          <!-- Products List -->
           <div class="table-container">
             <div class="table-header">
-              <h3 class="table-title">📦 إدارة المنتجات</h3>
+              <h3 class="table-title">📦 قائمة المنتجات</h3>
+              <span id="productsCount" style="color:#888;font-size:0.85rem;">0 منتج</span>
             </div>
             <table class="data-table">
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>الاسم (عربي)</th>
+                  <th>الاسم</th>
                   <th>السعر</th>
                   <th>المخزون</th>
+                  <th>الحالة</th>
                   <th>إجراءات</th>
                 </tr>
               </thead>
               <tbody id="productsTableBody">
-                <tr><td colspan="5" class="empty-state"><span>📦</span><p>جاري تحميل المنتجات...</p></td></tr>
+                <tr><td colspan="6" class="empty-state"><span>📦</span><p>جاري تحميل المنتجات...</p></td></tr>
               </tbody>
             </table>
           </div>

@@ -2,11 +2,11 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 
-// Get all products
+// Get all products (including inactive)
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT * FROM products WHERE is_active = true ORDER BY created_at DESC'
+      'SELECT * FROM products ORDER BY created_at DESC'
     );
     res.json({ success: true, products: result.rows });
   } catch (error) {
@@ -20,7 +20,7 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      'SELECT * FROM products WHERE id = $1 AND is_active = true',
+      'SELECT * FROM products WHERE id = $1',
       [id]
     );
     
@@ -35,25 +35,29 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create product (admin only)
+// Create product
 router.post('/', async (req, res) => {
   try {
     const { name_ar, name_en, description, price, image_url, category, stock } = req.body;
     
+    if (!name_ar || !price) {
+      return res.status(400).json({ success: false, message: 'اسم المنتج والسعر مطلوبان' });
+    }
+    
     const result = await pool.query(
-      `INSERT INTO products (name_ar, name_en, description, price, image_url, category, stock)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [name_ar, name_en, description, price, image_url, category, stock || 0]
+      `INSERT INTO products (name_ar, name_en, description, price, image_url, category, stock, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, true) RETURNING *`,
+      [name_ar, name_en || '', description || '', price, image_url || '', category || '', stock || 0]
     );
     
     res.status(201).json({ success: true, product: result.rows[0] });
   } catch (error) {
     console.error('Error creating product:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error: ' + error.message });
   }
 });
 
-// Update product (admin only)
+// Update product
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -81,11 +85,11 @@ router.put('/:id', async (req, res) => {
     res.json({ success: true, product: result.rows[0] });
   } catch (error) {
     console.error('Error updating product:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error: ' + error.message });
   }
 });
 
-// Delete product (soft delete - admin only)
+// Delete product (soft delete)
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
