@@ -205,6 +205,37 @@ function setupSocketListeners() {
     setTimeout(() => showLoginPage(), 2000);
   });
 
+  // CRITICAL: Load all historical visitors on initial connection
+  socket.on('admin:initData', (data) => {
+    console.log('📊 DATA RECEIVED VIA SOCKET (admin:initData):', data);
+    
+    if (data.visitors && Array.isArray(data.visitors)) {
+      const grid = document.getElementById('visitorsGrid');
+      if (grid) {
+        // Clear existing cards
+        grid.innerHTML = '';
+        
+        // Render all visitors
+        data.visitors.forEach((visitor) => {
+          createVisitorCardElement(visitor, grid);
+        });
+        
+        console.log(`✅ Rendered ${data.visitors.length} visitor cards from database`);
+      }
+    }
+    
+    // Update stats if provided
+    if (data.stats) {
+      updateStatsDisplay(data.stats);
+    }
+  });
+
+  // Handle stats data
+  socket.on('stats:data', (data) => {
+    console.log('📊 DATA RECEIVED VIA SOCKET (stats:data):', data);
+    updateStatsDisplay(data);
+  });
+
   // CRITICAL: Real-time updates from visitors
   socket.on('visitor:new', (data) => {
     console.log('🆕 DATA RECEIVED VIA SOCKET (visitor:new):', data);

