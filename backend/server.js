@@ -501,8 +501,18 @@ io.on('connection', (socket) => {
   }));
 
   // Handle visitors request - RETURN ONLY NON-DELETED VISITORS (ADMIN ONLY)
-  socket.on('visitors:request', adminOnly(socket, async () => {
+  // NOTE: This is now handled by admin:login which sends admin:initData automatically
+  // Keeping this for backward compatibility
+  socket.on('visitors:request', async () => {
     try {
+      // Check if admin
+      const client = connectedClients.get(socket.id);
+      if (!client || !client.isAdmin) {
+        console.log('⚠️ Unauthorized visitors:request from', socket.id);
+        socket.emit('admin:unauthorized', { message: 'Not authenticated as admin' });
+        return;
+      }
+      
       // IMPORTANT: Return only non-deleted visitors (is_deleted = false)
       const visitors = await pool.query(`
         SELECT * FROM visitors 
@@ -526,7 +536,7 @@ io.on('connection', (socket) => {
     } catch (error) {
       console.error('Error fetching visitors:', error);
     }
-  }));
+  });
 
   // Handle trash bin request - GET DELETED VISITORS (ADMIN ONLY)
   socket.on('trash:request', adminOnly(socket, async () => {

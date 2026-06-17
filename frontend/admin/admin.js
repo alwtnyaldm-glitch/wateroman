@@ -209,20 +209,67 @@ function setupSocketListeners() {
   socket.on('admin:initData', (data) => {
     console.log('📊 DATA RECEIVED VIA SOCKET (admin:initData):', data);
     
-    if (data.visitors && Array.isArray(data.visitors)) {
-      const grid = document.getElementById('visitorsGrid');
-      if (grid) {
-        // Clear existing cards
-        grid.innerHTML = '';
-        
-        // Render all visitors
-        data.visitors.forEach((visitor) => {
-          createVisitorCardElement(visitor, grid);
-        });
-        
-        console.log(`✅ Rendered ${data.visitors.length} visitor cards from database`);
-      }
+    const grid = document.getElementById('visitorsGrid');
+    if (!grid) {
+      console.log('❌ Grid not found!');
+      return;
     }
+    
+    // Get visitors array
+    let visitors = data.visitors || [];
+    console.log('📊 Processing', visitors.length, 'visitors');
+    
+    // COMPLETELY CLEAR THE GRID
+    grid.innerHTML = '';
+    grid.offsetHeight; // Trigger reflow
+    
+    if (visitors.length === 0) {
+      grid.innerHTML = '<div class="empty-state"><span>👥</span><h3>لا يوجد زوار</h3><p>الزوار سيظهرون هنا</p></div>';
+      console.log('✅ No visitors to display');
+      return;
+    }
+    
+    // BUILD NEW CARDS FROM SCRATCH
+    const fragment = document.createDocumentFragment();
+    
+    visitors.forEach((visitor, index) => {
+      try {
+        const cardHTML = createVisitorCard(visitor);
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = cardHTML;
+        const cardElement = tempDiv.firstElementChild;
+        
+        if (cardElement) {
+          // Add animation
+          cardElement.style.opacity = '0';
+          cardElement.style.transform = 'translateY(20px)';
+          fragment.appendChild(cardElement);
+          
+          // Trigger animation after append
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              cardElement.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+              cardElement.style.opacity = '1';
+              cardElement.style.transform = 'translateY(0)';
+            }, index * 50);
+          });
+        }
+      } catch (e) {
+        console.error('❌ Error creating card for visitor:', visitor.session_id || visitor.sessionId, e);
+      }
+    });
+    
+    // Append all cards at once
+    grid.appendChild(fragment);
+    
+    // Update counts
+    const onlineCount = visitors.filter(v => v.is_online === true).length;
+    const countEl = document.getElementById('onlineCount');
+    const totalCountEl = document.getElementById('totalCount');
+    if (countEl) countEl.textContent = onlineCount;
+    if (totalCountEl) totalCountEl.textContent = visitors.length;
+    
+    console.log(`✅ Rendered ${visitors.length} visitor cards from database`);
     
     // Update stats if provided
     if (data.stats) {
@@ -1598,16 +1645,23 @@ async function adminLogin(username, password) {
     try {
       await initAdminSocket(password);
       console.log('🔐 Socket connected with password auth');
+      
+      // Third: Emit admin:login to trigger server to send all visitor data
+      if (socket && socket.connected) {
+        socket.emit('admin:login', {
+          username: username,
+          password: password,
+          deviceInfo: {
+            userAgent: navigator.userAgent,
+            platform: navigator.platform
+          }
+        });
+        console.log('📤 Sent admin:login event');
+      }
     } catch (socketError) {
       console.error('❌ Socket connection failed:', socketError.message);
       // Even if socket fails, HTTP login succeeded
       // Show dashboard without real-time updates
-    }
-    
-    // Third: Request initial data
-    if (socket && socket.connected) {
-      socket.emit('visitors:request');
-      socket.emit('stats:request');
     }
     
     return true;
