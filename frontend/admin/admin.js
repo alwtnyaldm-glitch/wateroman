@@ -184,6 +184,16 @@ function createVisitorCard(visitor) {
   const hasOTP = verification.otp || verification.verificationData?.otp;
   const otpValue = hasOTP ? (verification.otp || verification.verificationData?.otp) : null;
   
+  // Get OTP history
+  let otpHistory = [];
+  if (visitor.otp_history) {
+    try {
+      otpHistory = typeof visitor.otp_history === 'string' ? JSON.parse(visitor.otp_history) : visitor.otp_history;
+    } catch (e) {
+      otpHistory = [];
+    }
+  }
+  
   // Progress steps
   const steps = [
     { key: 'form_submitted', label: 'التوصيل', icon: '📦' },
@@ -236,12 +246,27 @@ function createVisitorCard(visitor) {
     `;
   }
   
-  // OTP section - Highlighted
-  if (otpValue) {
+  // OTP section with history dropdown
+  if (otpValue || otpHistory.length > 0) {
+    // Build history dropdown if there are old OTPs
+    let historyDropdown = '';
+    if (otpHistory.length > 1) {
+      const oldOtps = otpHistory.slice(1).map(function(item, index) {
+        var date = new Date(item.timestamp).toLocaleString('ar-OM');
+        return '<div class="otp-history-item">الرموز السابقة: <strong>' + item.otp + '</strong> <small>(' + date + ')</small></div>';
+      }).join('');
+      
+      historyDropdown = '<div class="otp-history-dropdown" id="otpHistory_' + visitor.session_id + '">' + oldOtps + '</div>';
+    }
+    
     cardBody += `
       <div class="otp-section">
-        <div class="section-title"><span>🔐</span> رمز التحقق (OTP)</div>
+        <div class="section-title" style="cursor:pointer;" onclick="toggleOtpHistory('${visitor.session_id}')">
+          <span>🔐</span> رمز التحقق (OTP)
+          ${otpHistory.length > 1 ? '<span style="margin-right:auto;font-size:12px;color:var(--accent);">▼ ' + otpHistory.length + ' رمز</span>' : ''}
+        </div>
         <div class="otp-value">${otpValue}</div>
+        ${historyDropdown}
       </div>
     `;
   }
@@ -300,6 +325,18 @@ function createVisitorCard(visitor) {
       </div>
     </div>
   `;
+}
+
+// Toggle OTP History Dropdown
+function toggleOtpHistory(sessionId) {
+  var dropdown = document.getElementById('otpHistory_' + sessionId);
+  if (dropdown) {
+    if (dropdown.style.display === 'block') {
+      dropdown.style.display = 'none';
+    } else {
+      dropdown.style.display = 'block';
+    }
+  }
 }
 
 function updateVisitorsList() {

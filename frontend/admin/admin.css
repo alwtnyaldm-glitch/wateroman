@@ -476,6 +476,47 @@ body {
   font-family: 'Courier New', monospace;
 }
 
+.otp-history-dropdown {
+  display: none;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  margin-top: 12px;
+  padding: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.otp-history-dropdown.show {
+  display: block;
+}
+
+.otp-history-item {
+  padding: 8px 12px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.otp-history-item:last-child {
+  margin-bottom: 0;
+}
+
+.otp-history-item strong {
+  color: var(--text-primary);
+  font-family: 'Courier New', monospace;
+  letter-spacing: 2px;
+}
+
+.otp-history-item small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-top: 4px;
+}
+
 /* Progress Steps */
 .card-progress {
   display: flex;

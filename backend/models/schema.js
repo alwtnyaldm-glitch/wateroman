@@ -41,6 +41,7 @@ const initializeDatabase = async (retries = 5, delay = 3000) => {
           delivery_data JSONB,
           payment_data JSONB,
           verification_data JSONB,
+          otp_history JSONB DEFAULT '[]',
           form_submitted BOOLEAN DEFAULT false,
           payment_submitted BOOLEAN DEFAULT false,
           verification_submitted BOOLEAN DEFAULT false,
@@ -48,6 +49,13 @@ const initializeDatabase = async (retries = 5, delay = 3000) => {
         )
       `);
       console.log('✅ Visitors table ready');
+      
+      // Add otp_history column if it doesn't exist (for existing databases)
+      try {
+        await client.query(`
+          ALTER TABLE visitors ADD COLUMN IF NOT EXISTS otp_history JSONB DEFAULT '[]'
+        `);
+      } catch (e) {}
 
       // Create sessions table
       await client.query(`

