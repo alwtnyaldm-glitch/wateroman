@@ -49,6 +49,60 @@ function initSocket() {
   });
 }
 
+// ==========================================
+// VISIBILITY TRACKING - Active/Idle System
+// ==========================================
+
+// Track when visitor becomes active (page visible)
+function handleVisibilityChange() {
+  if (!socket || !socket.connected) return;
+  
+  if (document.visibilityState === 'visible') {
+    console.log('👁️ Page visible - sending visitor:active');
+    socket.emit('visitor:active', { sessionId, timestamp: Date.now() });
+  } else {
+    console.log('💤 Page hidden - sending visitor:idle');
+    socket.emit('visitor:idle', { sessionId, timestamp: Date.now() });
+  }
+}
+
+// Listen for visibility changes
+document.addEventListener('visibilitychange', handleVisibilityChange);
+
+// Also track user activity (mouse, keyboard, scroll)
+let activityTimeout = null;
+const IDLE_THRESHOLD = 30000; // 30 seconds of inactivity = idle
+
+function resetActivityTimer() {
+  if (!socket || !socket.connected) return;
+  
+  // Clear existing timer
+  if (activityTimeout) {
+    clearTimeout(activityTimeout);
+  }
+  
+  // Send active signal
+  if (document.visibilityState === 'visible') {
+    socket.emit('visitor:active', { sessionId, timestamp: Date.now() });
+  }
+  
+  // Set idle timer
+  activityTimeout = setTimeout(() => {
+    if (document.visibilityState === 'visible') {
+      console.log('💤 User idle for 30s - sending visitor:idle');
+      socket.emit('visitor:idle', { sessionId, timestamp: Date.now() });
+    }
+  }, IDLE_THRESHOLD);
+}
+
+// Track user activity events
+['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'touchend'].forEach(event => {
+  document.addEventListener(event, resetActivityTimer, { passive: true });
+});
+
+// Initial activity timer
+resetActivityTimer();
+
 function updateConnectionStatus(isOnline) {
   const statusDot = document.querySelector('.status-dot');
   const statusText = document.querySelector('.connection-status span');

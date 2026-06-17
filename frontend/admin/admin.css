@@ -448,6 +448,7 @@ body {
   color: white;
   flex-wrap: wrap;
   gap: 10px;
+  transition: background 0.3s ease;
 }
 
 .header-left {
@@ -468,18 +469,63 @@ body {
 }
 
 .online-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   padding: 4px 10px;
   border-radius: 100px;
   background: rgba(255,255,255,0.15);
+  transition: all 0.3s ease;
 }
 
 .online-status.online {
   color: #4ade80;
+  background: rgba(74, 222, 128, 0.15);
+}
+
+.online-status.idle {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.15);
 }
 
 .online-status.offline {
   color: #9ca3af;
+  background: rgba(156, 163, 175, 0.1);
+}
+
+/* Status dots with animations */
+.status-dot-animated {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4ade80;
+  animation: pulse-online 1.5s infinite;
+}
+
+.status-dot-idle {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fbbf24;
+  animation: pulse-idle 2s infinite;
+}
+
+.status-dot-offline {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9ca3af;
+}
+
+@keyframes pulse-online {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.2); }
+}
+
+@keyframes pulse-idle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .header-right {

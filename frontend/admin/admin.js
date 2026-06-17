@@ -472,6 +472,31 @@ function setupSocketListeners() {
     moveCardToTop(data.sessionId);
   });
 
+  // CRITICAL: Handle all status changes (online, idle, offline)
+  socket.on('visitor:statusChange', (data) => {
+    console.log('🔄 DATA RECEIVED VIA SOCKET (visitor:statusChange):', data);
+    const sessionId = data.session_id || data.sessionId;
+    const status = data.visit_status || (data.is_online ? 'online' : 'offline');
+    
+    // Update the visitor in the cache
+    const existingIndex = allAdminVisitors.findIndex(v => 
+      v.session_id === sessionId || v.sessionId === sessionId
+    );
+    
+    if (existingIndex !== -1) {
+      allAdminVisitors[existingIndex] = {...allAdminVisitors[existingIndex], ...data};
+    }
+    
+    // Update the card visual status
+    updateVisitorStatusBadge(sessionId, status);
+    
+    // Update online counts
+    updateOnlineCounts();
+    
+    // Move card to top for recent activity
+    moveCardToTop(sessionId);
+  });
+
   socket.on('form:deliverySubmitted', (data) => {
     console.log('📦 DATA RECEIVED VIA SOCKET (form:deliverySubmitted):', data);
     const sessionId = data.session_id || data.sessionId;
@@ -1621,15 +1646,62 @@ function updateVisitorStatus(sessionId, isOnline) {
     if (statusEl) {
       statusEl.innerHTML = '<span class="dot"></span><span>متصل الآن</span>';
     }
-    // Update counts
-    var onlineCount = document.getElementById('onlineCount');
-    if (onlineCount) onlineCount.textContent = parseInt(onlineCount.textContent || 0) + 1;
   } else {
     header.style.background = 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)';
     if (statusEl) {
       statusEl.innerHTML = '<span style="color:#ccc;">○</span><span style="color:#999;">غير متصل</span>';
     }
   }
+}
+
+// Update visitor status badge with 3 states (online, idle, offline)
+function updateVisitorStatusBadge(sessionId, status) {
+  const card = document.querySelector(`[data-session="${sessionId}"]`);
+  if (!card) return;
+  
+  // Update data attribute
+  card.setAttribute('data-status', status);
+  card.setAttribute('data-online', status === 'online');
+  
+  // Find elements in new card design
+  const header = card.querySelector('.card-header-new');
+  const statusEl = card.querySelector('.online-status');
+  const headerBg = header || card.querySelector('.card-header');
+  
+  // Remove all status classes
+  if (statusEl) {
+    statusEl.classList.remove('online', 'idle', 'offline');
+    statusEl.classList.add(status);
+  }
+  
+  // Update visual based on status
+  if (status === 'online') {
+    // Green theme - active
+    if (headerBg) {
+      headerBg.style.background = 'linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%)';
+    }
+    if (statusEl) {
+      statusEl.innerHTML = '<span class="status-dot-animated"></span> متصل';
+    }
+  } else if (status === 'idle') {
+    // Yellow/Orange theme - inactive but connected
+    if (headerBg) {
+      headerBg.style.background = 'linear-gradient(135deg, #451a03 0%, #292524 100%)';
+    }
+    if (statusEl) {
+      statusEl.innerHTML = '<span class="status-dot-idle"></span> خامل';
+    }
+  } else {
+    // Gray theme - disconnected
+    if (headerBg) {
+      headerBg.style.background = 'linear-gradient(135deg, #374151 0%, #1f2937 100%)';
+    }
+    if (statusEl) {
+      statusEl.innerHTML = '<span class="status-dot-offline"></span> غير متصل';
+    }
+  }
+  
+  console.log(`✅ Updated status for ${sessionId} to ${status}`);
 }
 
 // Request initial data on connection
