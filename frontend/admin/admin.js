@@ -114,57 +114,71 @@ function shouldPlaySound(sessionId, eventType) {
   return true;
 }
 
-// Initialize Socket Connection
-function initAdminSocket() {
+// Socket connection state
+let socketListenersRegistered = false;
+
+// Initialize Socket Connection (called AFTER successful login)
+function initAdminSocket(password) {
   return new Promise((resolve, reject) => {
+    // Disconnect existing socket if any
+    if (socket) {
+      socket.disconnect();
+      socket = null;
+    }
+    
+    // Create socket with password as auth token
     socket = io(SERVER_URL, {
+      auth: {
+        token: password // Send password directly for socket auth
+      },
       query: { sessionId: 'admin_' + Date.now() },
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: 5,
       reconnectionDelay: 1000
     });
 
     socket.on('connect', () => {
-      console.log('🔌 Admin connected, socket id:', socket.id);
+      console.log('🔌 Admin socket connected, socket id:', socket.id);
       updateConnectionStatus(true);
       
-      // Set up ALL event listeners AFTER connection
-      setupSocketListeners();
-      
-      // Wait for connection to stabilize
-      setTimeout(() => {
-        if (adminToken) {
-          socket.emit('admin:validate', { sessionToken: adminToken });
-        }
-        // Request initial data
-        requestInitialData();
-      }, 500);
+      // Register listeners only once
+      if (!socketListenersRegistered) {
+        setupSocketListeners();
+        socketListenersRegistered = true;
+      }
       
       resolve(socket);
     });
 
     socket.on('connect_error', (error) => {
-      console.error('❌ Connection error:', error);
+      console.error('❌ Socket connection error:', error.message);
       updateConnectionStatus(false);
       reject(error);
     });
 
     socket.on('disconnect', () => {
-      console.log('🔌 Admin disconnected');
+      console.log('🔌 Admin socket disconnected');
       updateConnectionStatus(false);
     });
     
-    socket.on('reconnect', () => {
-      console.log('🔌 Admin reconnected');
-      updateConnectionStatus(true);
-      // Re-setup listeners on reconnect
-      setupSocketListeners();
-      if (adminToken) {
-        socket.emit('admin:validate', { sessionToken: adminToken });
-      }
-      requestInitialData();
+    socket.on('unauthorized', (data) => {
+      console.error('❌ Socket unauthorized:', data.message);
+      socket.disconnect();
+      reject(new Error(data.message));
     });
+  });
+}
+
+// Reconnect socket with existing token
+function reconnectSocket() {
+  return new Promise((resolve, reject) => {
+    if (socket && socket.connected) {
+      resolve(socket);
+      return;
+    }
+    
+    initAdminSocket(adminToken).then(resolve).catch(reject);
   });
 }
 
@@ -1235,51 +1249,41 @@ async function updateStats() {
   });
 }
 
-// Admin Login
+// Admin Login - Updated flow
 async function adminLogin(username, password) {
   try {
+    // First: Validate credentials via HTTP API
     const response = await fetch(`${SERVER_URL}/api/admin/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
     const data = await response.json();
-    if (data.success) {
-      localStorage.setItem('admin_user', JSON.stringify(data.admin));
-      
-      if (socket && socket.connected) {
-        // Emit admin login via socket
-        socket.emit('admin:login', {
-          username,
-          password: '',
-          deviceInfo: { userAgent: navigator.userAgent, platform: navigator.platform }
-        });
-        
-        // Wait for socket confirmation, then request data
-        return new Promise((resolve) => {
-          socket.once('admin:loginSuccess', (response) => {
-            console.log('🔐 Socket authenticated, requesting data...', response);
-            // Store the REAL session token from server
-            adminToken = response.sessionToken;
-            localStorage.setItem('admin_token', adminToken);
-            // Request data immediately after socket auth
-            socket.emit('visitors:request');
-            socket.emit('stats:request');
-            resolve(true);
-          });
-          
-          socket.once('admin:loginFailed', () => {
-            console.error('❌ Socket authentication failed');
-            resolve(false);
-          });
-          
-          // Timeout fallback
-          setTimeout(() => resolve(true), 2000);
-        });
-      }
-      return true;
+    
+    if (!data.success) {
+      return false;
     }
-    return false;
+    
+    // Save user info
+    localStorage.setItem('admin_user', JSON.stringify(data.admin));
+    
+    // Second: Connect socket with password as auth token
+    try {
+      await initAdminSocket(password);
+      console.log('🔐 Socket connected with password auth');
+    } catch (socketError) {
+      console.error('❌ Socket connection failed:', socketError.message);
+      // Even if socket fails, HTTP login succeeded
+      // Show dashboard without real-time updates
+    }
+    
+    // Third: Request initial data
+    if (socket && socket.connected) {
+      socket.emit('visitors:request');
+      socket.emit('stats:request');
+    }
+    
+    return true;
   } catch (error) {
     console.error('Login error:', error);
     return false;
@@ -1648,19 +1652,11 @@ async function logoutAllDevices() {
   } catch (error) { console.error('Error logging out devices:', error); }
 }
 
-// Initialize - SECURE: Socket connects but no data until login
+// Initialize - SECURE: NO socket connection on page load
 document.addEventListener('DOMContentLoaded', async () => {
-  // Connect socket but DON'T request data yet
-  await initAdminSocket();
-  
-  if (!adminToken) {
-    showLoginPage();
-    // Clear any existing data from memory
-    clearAdminData();
-  } else {
-    // Validate token first, then show dashboard
-    await validateAdminSession();
-  }
+  // Show login page initially - NO socket connection until login
+  showLoginPage();
+  clearAdminData();
   
   // Login form
   document.getElementById('loginForm')?.addEventListener('submit', async (e) => {

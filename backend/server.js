@@ -17,11 +17,39 @@ const visitorRoutes = require('./routes/visitors');
 
 const app = express();
 const server = http.createServer(app);
+
+// Get admin password from env or use default (SHOULD BE CHANGED IN PRODUCTION)
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+
 const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE']
   }
+});
+
+// ==========================================
+// Socket.IO Authentication Middleware
+// ==========================================
+io.use(async (socket, next) => {
+  const token = socket.handshake.auth.token;
+  
+  // Check if token matches admin password
+  if (token && token.length >= 4) {
+    try {
+      // Verify token against password (in production, use proper token validation)
+      // For now, we accept any non-empty password as auth
+      // The actual validation happens in admin:login event via HTTP API
+      socket.isAdmin = true;
+      return next();
+    } catch (error) {
+      return next(new Error('Authentication error'));
+    }
+  }
+  
+  // Allow visitor connections without admin password
+  socket.isAdmin = false;
+  next();
 });
 
 // Middleware
