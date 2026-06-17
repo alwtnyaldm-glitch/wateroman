@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مياه واحة عمان - Oman Oasis Water</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="container header-content">
+      <div class="logo">
+        <div class="logo-icon">💧</div>
+        <div class="logo-text">
+          <h1>مياه واحة عمان</h1>
+          <span>Oman Oasis Water</span>
+        </div>
+      </div>
+      <div class="connection-status">
+        <span class="status-dot"></span>
+        <span>غير متصل</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation -->
+  <nav class="nav">
+    <div class="container">
+      <ul class="nav-list">
+        <li><a href="index.html" class="nav-link active">الرئيسية</a></li>
+        <li><a href="pages/delivery.html" class="nav-link">بيانات التوصيل</a></li>
+        <li><a href="pages/payment.html" class="nav-link">الدفع</a></li>
+        <li><a href="pages/verification.html" class="nav-link">التحقق</a></li>
+        <li><a href="admin/index.html" class="nav-link">لوحة التحكم</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <h2>💧 مياه نقية من قلب الطبيعة العمانية</h2>
+      <p>استمتع بأفضل أنواع المياه المعدنية والطبيعية من ينابيع سلطنة عمان</p>
+    </div>
+  </section>
+
+  <!-- Products Section -->
+  <section class="products-section">
+    <div class="container">
+      <h2 class="section-title">منتجاتنا</h2>
+      <div class="products-grid" id="productsContainer">
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>جاري تحميل المنتجات...</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <p>© 2024 مياه واحة عمان - جميع الحقوق محفوظة</p>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const productsContainer = document.getElementById('productsContainer');
+      
+      // Track page
+      trackPageChange('home');
+      
+      // Load products
+      const products = await fetchProducts();
+      
+      if (products.length === 0) {
+        productsContainer.innerHTML = '<p style="text-align:center;padding:2rem;">لا توجد منتجات متاحة</p>';
+        return;
+      }
+      
+      productsContainer.innerHTML = products.map(product => `
+        <div class="product-card page">
+          <img src="${product.image_url || 'https://via.placeholder.com/400x200?text=Water'}" 
+               alt="${product.name_ar}" 
+               class="product-image"
+               onerror="this.src='https://via.placeholder.com/400x200?text=Water'">
+          <div class="product-info">
+            <h3 class="product-name">${product.name_ar}</h3>
+            <p class="product-description">${product.description || ''}</p>
+            <p class="product-price">${product.price} ر.ع</p>
+            <button class="btn btn-primary" onclick="orderProduct(${product.id})">
+              اطلب الآن
+            </button>
+          </div>
+        </div>
+      `).join('');
+    });
+    
+    function orderProduct(productId) {
+      localStorage.setItem('selected_product', productId);
+      window.location.href = 'pages/delivery.html';
+    }
+  </script>
+</body>
+</html>

