@@ -205,8 +205,20 @@ function setupSocketListeners() {
 
   socket.on('visitor:offline', (data) => {
     console.log('📴 DATA RECEIVED VIA SOCKET (visitor:offline):', data);
-    updateVisitorStatus(data.sessionId, false);
+    const sessionId = data.session_id || data.sessionId;
+    
+    // IMPORTANT: DO NOT remove card, just update visual status
+    // The card with all OTP data should remain visible
+    updateVisitorStatus(sessionId, false);
+    
+    // Refresh the card with full data to ensure OTP history is updated
+    updateVisitorCard(sessionId, data);
+    
+    // Update stats but DON'T remove from list
     updateStats();
+    
+    // Request full refresh to ensure all data is synced
+    setTimeout(() => updateVisitorsList(), 1000);
   });
 
   socket.on('visitor:online', (data) => {

