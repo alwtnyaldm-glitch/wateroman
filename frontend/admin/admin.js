@@ -457,36 +457,79 @@ function banVisitor(sessionId, ipAddress) {
   }
 }
 
-// Load Banned Users List
+// Load Banned Users List with client details
 async function loadBannedUsers() {
   try {
     const response = await fetch(`${SERVER_URL}/api/admin/banned`);
     const data = await response.json();
     const tbody = document.getElementById('bannedTableBody');
+    const countEl = document.getElementById('bannedCount');
     if (!tbody) return;
     
     if (!data.banned?.length) {
-      tbody.innerHTML = `<tr><td colspan="4" class="empty-state"><span>✅</span><p>لا يوجد مستخدمين محظورين</p></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="empty-state"><span>✅</span><p>لا يوجد مستخدمين محظورين</p></td></tr>`;
+      if (countEl) countEl.textContent = '0 محظور';
       return;
     }
     
-    tbody.innerHTML = data.banned.map(user => `
-      <tr>
-        <td>${user.id}</td>
-        <td>
-          ${user.session_id ? `<div style="font-size:0.8rem;color:#666;">الجلسة: ${user.session_id.substring(0, 20)}...</div>` : ''}
-          ${user.ip_address ? `<div style="font-size:0.8rem;">IP: ${user.ip_address}</div>` : ''}
-        </td>
-        <td>${user.reason || '-'}</td>
-        <td>
-          <button class="btn btn-success btn-sm" onclick="unbanUser(${user.id})">
-            ✅ فك الحظر
-          </button>
-        </td>
-      </tr>
-    `).join('');
+    if (countEl) countEl.textContent = `${data.banned.length} محظور`;
+    
+    tbody.innerHTML = data.banned.map(user => {
+      // Extract client info from delivery data
+      const delivery = user.delivery_data;
+      const hasName = delivery?.fullName;
+      const hasPhone = delivery?.phone;
+      const country = user.country || '';
+      const banDate = new Date(user.created_at).toLocaleDateString('ar-OM');
+      
+      // Determine client identifier
+      let clientInfo, clientBadge;
+      if (hasName || hasPhone) {
+        clientInfo = `
+          <div style="font-weight:700;color:var(--danger);font-size:1rem;">
+            👤 ${hasName || 'غير معروف'}
+          </div>
+          ${hasPhone ? `<div style="font-size:0.85rem;color:#666;">📞 ${hasPhone}</div>` : ''}
+          ${country ? `<div style="font-size:0.8rem;color:#888;">🌍 ${country}</div>` : ''}
+        `;
+        clientBadge = `<span class="status-badge" style="background:rgba(0,119,182,0.1);color:var(--primary);">عميل مسجل</span>`;
+      } else {
+        clientInfo = `
+          <div style="font-weight:700;color:var(--gray-600);font-size:1rem;">
+            👤 زائر عشوائي
+          </div>
+          ${user.ip_address ? `<div style="font-size:0.85rem;color:#666;">🌐 IP: ${user.ip_address}</div>` : ''}
+          ${country ? `<div style="font-size:0.8rem;color:#888;">🌍 ${country}</div>` : ''}
+        `;
+        clientBadge = `<span class="status-badge" style="background:rgba(107,114,128,0.1);color:#6b7280;">زائر</span>`;
+      }
+      
+      return `
+        <tr>
+          <td style="font-weight:700;color:var(--danger);">#${user.id}</td>
+          <td>
+            ${clientInfo}
+          </td>
+          <td>
+            ${clientBadge}
+          </td>
+          <td style="font-size:0.85rem;color:#666;">
+            ${user.reason || 'بدون سبب'}
+            <div style="margin-top:0.25rem;font-size:0.75rem;color:#999;">
+              📅 ${banDate}
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-success btn-sm" onclick="unbanUser(${user.id})" style="white-space:nowrap;">
+              ✅ فك الحظر
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
   } catch (error) {
     console.error('Error loading banned users:', error);
+    showNotification('خطأ', 'فشل في تحميل قائمة المحظورين', 'error');
   }
 }
 

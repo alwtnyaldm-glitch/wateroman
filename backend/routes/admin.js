@@ -99,12 +99,23 @@ router.post('/admins', async (req, res) => {
   }
 });
 
-// Get all banned users
+// Get all banned users with visitor details
 router.get('/banned', async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT id, session_id, ip_address, reason, custom_message, created_at FROM banned_users ORDER BY created_at DESC'
-    );
+    const result = await pool.query(`
+      SELECT 
+        b.id,
+        b.session_id,
+        b.ip_address,
+        b.reason,
+        b.custom_message,
+        b.created_at,
+        v.delivery_data,
+        v.country
+      FROM banned_users b
+      LEFT JOIN visitors v ON b.session_id = v.session_id OR b.ip_address = v.ip_address
+      ORDER BY b.created_at DESC
+    `);
     res.json({ success: true, banned: result.rows });
   } catch (error) {
     console.error('Error fetching banned users:', error);

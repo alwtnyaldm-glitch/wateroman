@@ -245,22 +245,21 @@
           
           <div class="table-container" style="margin-top:1rem;">
             <div class="table-header">
-              <h3 class="table-title">📋 المستخدمين المحظورين حالياً</h3>
-              <button class="btn btn-secondary btn-sm" onclick="loadBannedUsers()">
-                🔄 تحديث
-              </button>
+              <h3 class="table-title">📋 المستخدمين المحظورين</h3>
+              <span id="bannedCount" style="background:var(--danger);color:white;padding:0.25rem 0.75rem;border-radius:1rem;font-size:0.85rem;">0 محظور</span>
             </div>
             <table class="data-table">
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>معرف الجلسة / IP</th>
-                  <th>السبب</th>
+                  <th>معلومات العميل</th>
+                  <th>النوع</th>
+                  <th>السبب / التاريخ</th>
                   <th>إجراء</th>
                 </tr>
               </thead>
               <tbody id="bannedTableBody">
-                <tr><td colspan="4" class="empty-state"><span>🚫</span><p>جاري تحميل القائمة...</p></td></tr>
+                <tr><td colspan="5" class="empty-state"><span>🚫</span><p>جاري تحميل القائمة...</p></td></tr>
               </tbody>
             </table>
           </div>
