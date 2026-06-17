@@ -9,7 +9,7 @@ let isMuted = false;
 let audioContext = null;
 
 // ==========================================
-// SMART SOUND SYSTEM - No sounds during typing, alerts only on submission
+// SMART SOUND SYSTEM - Silent typing, alerts only on submissions
 // ==========================================
 
 // Track which events we've already notified about (prevent spam)
@@ -17,12 +17,6 @@ const notifiedEvents = new Map();
 
 // Sound definitions using Web Audio API
 const sounds = {
-  // New visitor arrives - triple ascending beep
-  newVisitor: () => {
-    if (isMuted) return;
-    playSmartBeep([523.25, 659.25, 783.99], 0.15, 0.08);
-  },
-  
   // Delivery form submitted - NICE DOUBLE BEEP (success)
   formDelivery: () => {
     if (isMuted) return;
@@ -44,6 +38,13 @@ const sounds = {
     playSmartBeep([880, 0, 880, 0, 1046.50], 0.08, 0.06);
   }
 };
+
+// Play gentle notification when visitor changes page
+function playPageChangeSound() {
+  if (isMuted) return;
+  // Soft single chime - gentle notification
+  playSmartBeep([440, 0, 554.37], 0.1, 0.15);
+}
 
 // Generate smart beep using Web Audio API
 function playSmartBeep(frequencies, duration = 0.15, gap = 0.1) {
@@ -193,13 +194,15 @@ function setupSocketListeners() {
   // CRITICAL: Real-time updates from visitors
   socket.on('visitor:new', (data) => {
     console.log('🆕 DATA RECEIVED VIA SOCKET (visitor:new):', data);
-    sounds.newVisitor();
+    // NO SOUND for new visitors - data updates should be silent
     updateStats();
     updateVisitorsList();
   });
 
   socket.on('visitor:pageChange', (data) => {
     console.log('📄 DATA RECEIVED VIA SOCKET (visitor:pageChange):', data);
+    // Play gentle notification when visitor changes page
+    playPageChangeSound();
     updateVisitorPage(data.sessionId, data.page);
   });
 

