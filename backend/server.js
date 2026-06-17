@@ -605,7 +605,7 @@ io.on('connection', (socket) => {
     } catch (error) {
       console.error('Error banning user:', error);
     }
-  });
+  }));
 
   // Handle unban request
   socket.on('user:unban', async (data) => {
