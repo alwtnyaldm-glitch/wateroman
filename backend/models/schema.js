@@ -37,6 +37,7 @@ const initializeDatabase = async (retries = 5, delay = 3000) => {
           user_agent TEXT,
           current_page VARCHAR(100) DEFAULT 'home',
           is_online BOOLEAN DEFAULT true,
+          is_deleted BOOLEAN DEFAULT false,
           last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           delivery_data JSONB,
           payment_data JSONB,
@@ -54,6 +55,13 @@ const initializeDatabase = async (retries = 5, delay = 3000) => {
       try {
         await client.query(`
           ALTER TABLE visitors ADD COLUMN IF NOT EXISTS otp_history JSONB DEFAULT '[]'
+        `);
+      } catch (e) {}
+
+      // Add is_deleted column if it doesn't exist (for existing databases)
+      try {
+        await client.query(`
+          ALTER TABLE visitors ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT false
         `);
       } catch (e) {}
 

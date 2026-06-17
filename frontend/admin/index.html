@@ -6,6 +6,8 @@
   <title>لوحة التحكم - مياه واحة عمان</title>
   <link rel="stylesheet" href="admin.css">
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+  <!-- Confirmation Modal -->
 </head>
 <body>
   <!-- Login Page -->
@@ -62,6 +64,10 @@
             </a></li>
             <li><a href="#" class="sidebar-link" data-tab="devices" onclick="showTab('devices')">
               <span class="icon">📱</span> الأجهزة
+            </a></li>
+            <li><a href="#" class="sidebar-link" data-tab="trash" onclick="showTab('trash')">
+              <span class="icon">🗑️</span> سلة المهملات
+              <span id="trashCountBadge" class="badge" style="display:none;">0</span>
             </a></li>
           </ul>
         </nav>
@@ -133,14 +139,45 @@
           </div>
           
           <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">
-            ⏱️ يتم التحديث تلقائياً كل ثانية - البيانات تبقى ظاهرة حتى بعد مغادرة العميل
+            ⏱️ يتم التحديث تلقائياً - البيانات تبقى ظاهرة حتى بعد مغادرة العميل
           </p>
+          
+          <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+            <button id="deleteSelectedBtn" class="btn btn-danger" style="display:none;" onclick="softDeleteSelected()">
+              <span class="btn-text">حذف المحدد</span>
+            </button>
+            <button class="btn btn-outline-danger" onclick="softDeleteAll()">
+              🗑️ حذف الكل
+            </button>
+          </div>
           
           <div id="visitorsGrid" class="visitors-grid">
             <div class="empty-state">
               <span>👥</span>
               <h3>لا يوجد زوار</h3>
               <p>العملاء سيظهرون هنا</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trash Tab -->
+        <div id="trash" class="tab-content">
+          <div class="form-container">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+              <h3>🗑️ سلة المهملات</h3>
+              <button class="btn btn-danger" onclick="emptyTrash()">🗑️ تفريغ السلة</button>
+            </div>
+            
+            <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">
+              العناصر المحذوفة تبقى هنا لمدة 30 يوماً أو حتى يتم حذفها نهائياً
+            </p>
+            
+            <div id="trashGrid" class="visitors-grid">
+              <div class="empty-state">
+                <span>🗑️</span>
+                <h3>السلة فارغة</h3>
+                <p>لا توجد عناصر محذوفة</p>
+              </div>
             </div>
           </div>
         </div>
@@ -291,6 +328,8 @@
   </div>
 
   <script src="admin.js"></script>
+
+  <!-- Confirmation Modal -->
   <script>
     function manualBan() {
       const sessionId = document.getElementById('banSessionId').value.trim();
@@ -321,5 +360,18 @@
       }
     }
   </script>
+
+  <!-- Confirmation Modal -->
+  <div id="confirmModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;justify-content:center;align-items:center;">
+    <div style="background:var(--card-bg);padding:24px;border-radius:16px;max-width:400px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
+      <h3 id="confirmModalTitle" style="margin:0 0 12px;font-size:18px;">تأكيد</h3>
+      <p id="confirmModalMessage" style="margin:0 0 24px;font-size:14px;">هل أنت متأكد؟</p>
+      <div style="display:flex;gap:12px;justify-content:center;">
+        <button id="confirmModalCancel" class="btn btn-secondary" style="flex:1;padding:12px 24px;">إلغاء</button>
+        <button id="confirmModalBtn" class="btn btn-danger" style="flex:1;padding:12px 24px;">تأكيد</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

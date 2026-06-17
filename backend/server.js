@@ -378,17 +378,24 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle live visitors request (جلب جميع الزوار حتى غير المتصلين)
-  // Handle visitors request - RETURN ALL VISITORS (online and offline)
+  // Handle visitors request - RETURN ONLY NON-DELETED VISITORS
   socket.on('visitors:request', async () => {
     try {
-      // IMPORTANT: Return ALL visitors including offline ones
-      // Data should NEVER be deleted, only marked as offline
+      // IMPORTANT: Return only non-deleted visitors (is_deleted = false)
       const visitors = await pool.query(`
-        SELECT * FROM visitors ORDER BY is_online DESC, last_activity DESC LIMIT 100
+        SELECT * FROM visitors 
+        WHERE is_deleted = false 
+        ORDER BY is_online DESC, last_activity DESC 
+        LIMIT 100
       `);
 
-      const responseData = { visitors: visitors.rows };
+      // Also get trash count
+      const trashCount = await pool.query('SELECT COUNT(*) FROM visitors WHERE is_deleted = true');
+
+      const responseData = { 
+        visitors: visitors.rows,
+        trashCount: parseInt(trashCount.rows[0].count)
+      };
       
       // Send to requesting socket
       socket.emit('visitors:update', responseData);
@@ -396,9 +403,145 @@ io.on('connection', (socket) => {
       // Also broadcast via io.emit for reliability
       io.emit('visitors:update', responseData);
       
-      console.log('📡 visitors:request: returning', visitors.rows.length, 'visitors (including offline)');
+      console.log('📡 visitors:request: returning', visitors.rows.length, 'visitors,', trashCount.rows[0].count, 'in trash');
     } catch (error) {
       console.error('Error fetching visitors:', error);
+    }
+  });
+
+  // Handle trash bin request - GET DELETED VISITORS
+  socket.on('trash:request', async () => {
+    try {
+      const trashVisitors = await pool.query(`
+        SELECT * FROM visitors 
+        WHERE is_deleted = true 
+        ORDER BY last_activity DESC 
+        LIMIT 100
+      `);
+
+      socket.emit('trash:update', { visitors: trashVisitors.rows });
+      
+      console.log('📡 trash:request: returning', trashVisitors.rows.length, 'deleted visitors');
+    } catch (error) {
+      console.error('Error fetching trash:', error);
+    }
+  });
+
+  // Handle soft delete (move to trash)
+  socket.on('visitor:softDelete', async (data) => {
+    try {
+      const { sessionId } = data;
+      
+      await pool.query(
+        'UPDATE visitors SET is_deleted = true, last_activity = CURRENT_TIMESTAMP WHERE session_id = $1',
+        [sessionId]
+      );
+
+      // Get updated trash count
+      const trashCount = await pool.query('SELECT COUNT(*) FROM visitors WHERE is_deleted = true');
+      
+      // Broadcast update
+      io.emit('visitor:softDeleted', { sessionId, trashCount: parseInt(trashCount.rows[0].count) });
+      
+      console.log('🗑️ Visitor soft deleted:', sessionId);
+    } catch (error) {
+      console.error('Error soft deleting visitor:', error);
+    }
+  });
+
+  // Handle soft delete multiple (move selected to trash)
+  socket.on('visitor:softDeleteMultiple', async (data) => {
+    try {
+      const { sessionIds } = data;
+      
+      if (sessionIds && sessionIds.length > 0) {
+        const placeholders = sessionIds.map((_, i) => `$${i + 1}`).join(',');
+        await pool.query(
+          `UPDATE visitors SET is_deleted = true, last_activity = CURRENT_TIMESTAMP WHERE session_id IN (${placeholders})`,
+          sessionIds
+        );
+      }
+
+      // Get updated trash count
+      const trashCount = await pool.query('SELECT COUNT(*) FROM visitors WHERE is_deleted = true');
+      
+      // Broadcast update
+      io.emit('visitor:softDeletedMultiple', { sessionIds, trashCount: parseInt(trashCount.rows[0].count) });
+      
+      console.log('🗑️ Multiple visitors soft deleted:', sessionIds.length);
+    } catch (error) {
+      console.error('Error soft deleting multiple visitors:', error);
+    }
+  });
+
+  // Handle soft delete all (move all to trash)
+  socket.on('visitor:softDeleteAll', async () => {
+    try {
+      await pool.query(
+        'UPDATE visitors SET is_deleted = true, last_activity = CURRENT_TIMESTAMP WHERE is_deleted = false'
+      );
+
+      // Broadcast update
+      io.emit('visitor:softDeletedAll', { trashCount: 0 });
+      
+      console.log('🗑️ All visitors soft deleted (moved to trash)');
+    } catch (error) {
+      console.error('Error soft deleting all visitors:', error);
+    }
+  });
+
+  // Handle restore from trash
+  socket.on('visitor:restore', async (data) => {
+    try {
+      const { sessionId } = data;
+      
+      await pool.query(
+        'UPDATE visitors SET is_deleted = false, last_activity = CURRENT_TIMESTAMP WHERE session_id = $1',
+        [sessionId]
+      );
+
+      // Get updated trash count
+      const trashCount = await pool.query('SELECT COUNT(*) FROM visitors WHERE is_deleted = true');
+      
+      // Broadcast update
+      io.emit('visitor:restored', { sessionId, trashCount: parseInt(trashCount.rows[0].count) });
+      
+      console.log('↩️ Visitor restored:', sessionId);
+    } catch (error) {
+      console.error('Error restoring visitor:', error);
+    }
+  });
+
+  // Handle permanent delete from trash
+  socket.on('visitor:permanentDelete', async (data) => {
+    try {
+      const { sessionId } = data;
+      
+      await pool.query('DELETE FROM visitors WHERE session_id = $1', [sessionId]);
+
+      // Get updated trash count
+      const trashCount = await pool.query('SELECT COUNT(*) FROM visitors WHERE is_deleted = true');
+      
+      // Broadcast update
+      io.emit('visitor:permanentDeleted', { sessionId, trashCount: parseInt(trashCount.rows[0].count) });
+      
+      console.log('❌ Visitor permanently deleted:', sessionId);
+    } catch (error) {
+      console.error('Error permanently deleting visitor:', error);
+    }
+  });
+
+  // Handle empty trash (delete all from trash)
+  socket.on('trash:empty', async () => {
+    try {
+      await pool.query('DELETE FROM visitors WHERE is_deleted = true');
+
+      // Broadcast update
+      io.emit('trash:emptied');
+      
+      console.log('🗑️ Trash emptied');
+    } catch (error) {
+      console.error('Error emptying trash:', error);
     }
   });
 

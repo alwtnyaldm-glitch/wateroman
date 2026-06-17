@@ -292,6 +292,52 @@ function setupSocketListeners() {
     }
   });
 
+  // TRASH BIN SOCKET HANDLERS
+  socket.on('trash:update', (data) => {
+    console.log('🗑️ DATA RECEIVED VIA SOCKET (trash:update):', data);
+    handleTrashUpdate(data);
+  });
+
+  socket.on('visitor:softDeleted', (data) => {
+    console.log('🗑️ DATA RECEIVED VIA SOCKET (visitor:softDeleted):', data);
+    updateTrashCount(data.trashCount);
+    removeVisitorCard(data.sessionId);
+  });
+
+  socket.on('visitor:softDeletedMultiple', (data) => {
+    console.log('🗑️ DATA RECEIVED VIA SOCKET (visitor:softDeletedMultiple):', data);
+    updateTrashCount(data.trashCount);
+    data.sessionIds.forEach(id => removeVisitorCard(id));
+    clearAllCheckboxes();
+  });
+
+  socket.on('visitor:softDeletedAll', (data) => {
+    console.log('🗑️ DATA RECEIVED VIA SOCKET (visitor:softDeletedAll):', data);
+    updateTrashCount(data.trashCount);
+    updateVisitorsList();
+    clearAllCheckboxes();
+  });
+
+  socket.on('visitor:restored', (data) => {
+    console.log('↩️ DATA RECEIVED VIA SOCKET (visitor:restored):', data);
+    updateTrashCount(data.trashCount);
+    updateVisitorsList();
+    // Remove from trash view if visible
+    removeVisitorCard(data.sessionId);
+  });
+
+  socket.on('visitor:permanentDeleted', (data) => {
+    console.log('❌ DATA RECEIVED VIA SOCKET (visitor:permanentDeleted):', data);
+    updateTrashCount(data.trashCount);
+    removeVisitorCard(data.sessionId);
+  });
+
+  socket.on('trash:emptied', (data) => {
+    console.log('🗑️ DATA RECEIVED VIA SOCKET (trash:emptied):', data);
+    updateTrashCount(0);
+    handleTrashUpdate({ visitors: [] });
+  });
+
   console.log('✅ All socket listeners registered');
 }
 
@@ -332,7 +378,7 @@ function getCountryFlag(countryCode) {
   } catch { return '🌍'; }
 }
 
-function createVisitorCard(visitor) {
+function createVisitorCard(visitor, isTrashMode = false) {
   // Ensure all data fields exist
   const delivery = visitor.delivery_data || {};
   const payment = visitor.payment_data || {};
@@ -451,10 +497,28 @@ function createVisitorCard(visitor) {
     ? 'background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);'
     : 'background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);';
   
+  // Build actions based on mode
+  let actionsHTML;
+  if (isTrashMode) {
+    // Trash mode actions
+    actionsHTML = `
+      <button class="btn btn-success btn-sm" onclick="restoreVisitor('${sessionId}')">↩️ استعادة</button>
+      <button class="btn btn-danger btn-sm" onclick="permanentDeleteVisitor('${sessionId}')">❌ حذف نهائي</button>
+    `;
+  } else {
+    // Normal mode actions
+    actionsHTML = `
+      <input type="checkbox" class="visitor-checkbox" onchange="toggleVisitorSelection('${sessionId}', this)" title="تحديد">
+      <button class="btn btn-danger btn-sm" onclick="softDeleteVisitor('${sessionId}')">🗑️</button>
+      <button class="btn btn-danger btn-sm" onclick="banVisitor('${sessionId}', '${escapeHtml(ipAddress)}')">🚫 حظر</button>
+    `;
+  }
+  
   // Build final card HTML
   const cardHTML = `
-    <div class="visitor-card" data-session="${sessionId}" data-online="${isOnline}">
+    <div class="visitor-card" data-session="${sessionId}" data-online="${isOnline}" style="${isTrashMode ? 'border-color: #ef4444;' : ''}">
       <div class="card-header" style="${headerStyle}">
+        ${isTrashMode ? '<span style="background:#ef4444;padding:2px 8px;border-radius:4px;font-size:11px;">🗑️ محذوف</span>' : ''}
         ${statusHTML}
         <div class="card-country">
           <span>${getCountryFlag(countryCode)}</span>
@@ -464,9 +528,7 @@ function createVisitorCard(visitor) {
       </div>
       ${cardBody}
       <div class="card-progress">${progressHTML}</div>
-      <div class="card-actions">
-        <button class="btn btn-danger btn-sm" onclick="banVisitor('${sessionId}', '${escapeHtml(ipAddress)}')">🚫 حظر</button>
-      </div>
+      <div class="card-actions">${actionsHTML}</div>
     </div>
   `;
   
@@ -600,6 +662,11 @@ function handleVisitorsUpdate(data) {
     return;
   }
   
+  // Update trash count if provided
+  if (data.trashCount !== undefined) {
+    updateTrashCount(data.trashCount);
+  }
+  
   const onlineCount = visitors.filter(v => v.is_online === true).length;
   
   // Update stats
@@ -663,6 +730,196 @@ function handleVisitorsUpdate(data) {
   
   console.log('✅ Grid rebuilt with', visitors.length, 'visitor cards');
   console.log('📋 Grid child count:', grid.children.length);
+}
+
+// ==========================================
+// TRASH BIN FUNCTIONS
+// ==========================================
+
+// Track selected visitors
+let selectedVisitors = new Set();
+
+function updateTrashCount(count) {
+  const trashBadge = document.getElementById('trashCountBadge');
+  if (trashBadge) {
+    if (count > 0) {
+      trashBadge.textContent = count;
+      trashBadge.style.display = 'inline';
+    } else {
+      trashBadge.style.display = 'none';
+    }
+  }
+}
+
+function handleTrashUpdate(data) {
+  console.log('🗑️ Processing trash update:', data);
+  const grid = document.getElementById('trashGrid');
+  if (!grid) return;
+
+  const visitors = data.visitors || [];
+  grid.innerHTML = '';
+
+  if (visitors.length === 0) {
+    grid.innerHTML = '<div class="empty-state"><span>🗑️</span><h3>السلة فارغة</h3><p>لا توجد عناصر محذوفة</p></div>';
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  visitors.forEach(function(visitor) {
+    const cardHTML = createVisitorCard(visitor, true);
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = cardHTML;
+    const cardElement = tempDiv.firstElementChild;
+    if (cardElement) {
+      fragment.appendChild(cardElement);
+    }
+  });
+  grid.appendChild(fragment);
+  console.log('✅ Trash grid rebuilt with', visitors.length, 'cards');
+}
+
+function requestTrashData() {
+  if (!socket || !socket.connected) return;
+  socket.emit('trash:request');
+}
+
+function removeVisitorCard(sessionId) {
+  const card = document.querySelector('[data-session="' + sessionId + '"]');
+  if (card) {
+    card.style.opacity = '0';
+    card.style.transform = 'translateX(-20px)';
+    setTimeout(() => card.remove(), 300);
+  }
+}
+
+function clearAllCheckboxes() {
+  selectedVisitors.clear();
+  document.querySelectorAll('.visitor-checkbox').forEach(cb => cb.checked = false);
+  updateDeleteSelectedButton();
+}
+
+function toggleVisitorSelection(sessionId, checkbox) {
+  if (checkbox.checked) {
+    selectedVisitors.add(sessionId);
+  } else {
+    selectedVisitors.delete(sessionId);
+  }
+  updateDeleteSelectedButton();
+}
+
+function updateDeleteSelectedButton() {
+  const btn = document.getElementById('deleteSelectedBtn');
+  if (btn) {
+    if (selectedVisitors.size > 0) {
+      btn.style.display = 'inline-flex';
+      btn.querySelector('.btn-text').textContent = 'حذف المحدد (' + selectedVisitors.size + ')';
+    } else {
+      btn.style.display = 'none';
+    }
+  }
+}
+
+function getSelectedCount() {
+  return selectedVisitors.size;
+}
+
+// Soft delete single visitor
+function softDeleteVisitor(sessionId) {
+  showConfirmModal(
+    'نقل إلى سلة المهملات',
+    'هل أنت متأكد من نقل هذا الزائر إلى سلة المهملات؟',
+    function() {
+      socket.emit('visitor:softDelete', { sessionId });
+      showNotification('تم النقل للسلة', 'تم نقل الزائر إلى سلة المهملات', 'success');
+    }
+  );
+}
+
+// Soft delete selected visitors
+function softDeleteSelected() {
+  if (selectedVisitors.size === 0) return;
+  
+  showConfirmModal(
+    'حذف المحدد',
+    'هل أنت متأكد من حذف الزوار المحددين (' + selectedVisitors.size + ' زائر)؟',
+    function() {
+      socket.emit('visitor:softDeleteMultiple', { sessionIds: Array.from(selectedVisitors) });
+      showNotification('تم الحذف', 'تم نقل الزوار المحددين إلى سلة المهملات', 'success');
+    }
+  );
+}
+
+// Soft delete all visitors
+function softDeleteAll() {
+  showConfirmModal(
+    'حذف الكل',
+    'هل أنت متأكد من نقل جميع الزوار إلى سلة المهملات؟',
+    function() {
+      socket.emit('visitor:softDeleteAll');
+      showNotification('تم الحذف', 'تم نقل جميع الزوار إلى سلة المهملات', 'success');
+    }
+  );
+}
+
+// Restore visitor from trash
+function restoreVisitor(sessionId) {
+  socket.emit('visitor:restore', { sessionId });
+  showNotification('تم الاستعادة', 'تم استعادة الزائر بنجاح', 'success');
+}
+
+// Permanently delete visitor
+function permanentDeleteVisitor(sessionId) {
+  showConfirmModal(
+    'حذف نهائي',
+    'هل أنت متأكد من حذف هذا الزائر نهائياً؟ لا يمكن التراجع عن هذا الإجراء!',
+    function() {
+      socket.emit('visitor:permanentDelete', { sessionId });
+      showNotification('تم الحذف', 'تم حذف الزائر نهائياً', 'success');
+    }
+  );
+}
+
+// Empty trash
+function emptyTrash() {
+  showConfirmModal(
+    'تفريغ السلة',
+    'هل أنت متأكد من حذف جميع العناصر في سلة المهملات نهائياً؟ لا يمكن التراجع عن هذا الإجراء!',
+    function() {
+      socket.emit('trash:empty');
+      showNotification('تم التفريغ', 'تم تفريغ سلة المهملات نهائياً', 'success');
+    }
+  );
+}
+
+// Confirmation Modal
+function showConfirmModal(title, message, onConfirm) {
+  const modal = document.getElementById('confirmModal');
+  const titleEl = document.getElementById('confirmModalTitle');
+  const messageEl = document.getElementById('confirmModalMessage');
+  const confirmBtn = document.getElementById('confirmModalBtn');
+  const cancelBtn = document.getElementById('confirmModalCancel');
+  
+  if (!modal) return;
+  
+  titleEl.textContent = title;
+  messageEl.textContent = message;
+  
+  // Clear previous handlers
+  const newConfirmBtn = confirmBtn.cloneNode(true);
+  const newCancelBtn = cancelBtn.cloneNode(true);
+  confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+  cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+  
+  newConfirmBtn.addEventListener('click', function() {
+    modal.style.display = 'none';
+    if (onConfirm) onConfirm();
+  });
+  
+  newCancelBtn.addEventListener('click', function() {
+    modal.style.display = 'none';
+  });
+  
+  modal.style.display = 'flex';
 }
 
 function updateVisitorPage(sessionId, page) {
@@ -1031,7 +1288,7 @@ function unbanUser(banId) {
 // Tab Navigation
 function showTab(tabId) {
   document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+  document.querySelectorAll('.sidebar-link').forEach(link => link.classList.remove('active'));
   document.getElementById(tabId)?.classList.add('active');
   document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
   
@@ -1040,6 +1297,7 @@ function showTab(tabId) {
   else if (tabId === 'products') { loadProducts(); }
   else if (tabId === 'banned') { loadBannedUsers(); }
   else if (tabId === 'devices') { loadDevices(); }
+  else if (tabId === 'trash') { requestTrashData(); }
 }
 
 // Toggle Sound
