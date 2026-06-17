@@ -50,12 +50,12 @@ function initAdminSocket() {
       reconnectionDelay: 1000
     });
 
-    // Set up ALL event listeners immediately
-    setupSocketListeners();
-
     socket.on('connect', () => {
       console.log('🔌 Admin connected, socket id:', socket.id);
       updateConnectionStatus(true);
+      
+      // Set up ALL event listeners AFTER connection
+      setupSocketListeners();
       
       // Wait for connection to stabilize
       setTimeout(() => {
@@ -83,6 +83,8 @@ function initAdminSocket() {
     socket.on('reconnect', () => {
       console.log('🔌 Admin reconnected');
       updateConnectionStatus(true);
+      // Re-setup listeners on reconnect
+      setupSocketListeners();
       if (adminToken) {
         socket.emit('admin:validate', { sessionToken: adminToken });
       }
@@ -93,7 +95,11 @@ function initAdminSocket() {
 
 // Separate function for all socket listeners
 function setupSocketListeners() {
-  if (!socket) return;
+  if (!socket) {
+    console.log('❌ Socket not ready for listeners');
+    return;
+  }
+  console.log('📡 Setting up socket listeners...');
 
   socket.on('admin:valid', (data) => {
     console.log('🔐 Admin validation result:', data);
@@ -494,6 +500,11 @@ function updateVisitorsList() {
 
 function handleVisitorsUpdate(data) {
   console.log('📋 Processing visitors update:', data);
+  console.log('📋 Raw data:', JSON.stringify(data, null, 2).substring(0, 500));
+  
+  // Ensure data structure is correct
+  const visitors = data.visitors || data.rows || [];
+  console.log('📋 Found', visitors.length, 'visitors');
   
   const grid = document.getElementById('visitorsGrid');
   const countEl = document.getElementById('onlineCount');
@@ -504,52 +515,60 @@ function handleVisitorsUpdate(data) {
     return;
   }
   
-  const visitors = data.visitors || [];
-  console.log('📋 Found', visitors.length, 'visitors');
-  
   const onlineCount = visitors.filter(v => v.is_online === true).length;
   
   // Update stats
   if (countEl) countEl.textContent = onlineCount;
   if (totalCountEl) totalCountEl.textContent = visitors.length;
   
-  // COMPLETELY CLEAR THE GRID
+  // COMPLETELY CLEAR THE GRID - Force DOM update
   grid.innerHTML = '';
   
+  // Force browser to recognize the empty state
+  grid.offsetHeight; // Trigger reflow
+  
   if (visitors.length === 0) {
-    grid.innerHTML = `
-      <div class="empty-state">
-        <span>👥</span>
-        <h3>لا يوجد زوار</h3>
-        <p>الزوار سيظهرون هنا</p>
-      </div>
-    `;
+    grid.innerHTML = '<div class="empty-state"><span>👥</span><h3>لا يوجد زوار</h3><p>الزوار سيظهرون هنا</p></div>';
     visitorsCache.clear();
     console.log('✅ Grid cleared, showing empty state');
     return;
   }
   
   // BUILD NEW CARDS FROM SCRATCH
+  const fragment = document.createDocumentFragment();
+  
   visitors.forEach(function(visitor, index) {
-    const cardHTML = createVisitorCard(visitor);
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = cardHTML;
-    const cardElement = tempDiv.firstElementChild;
-    
-    // Add animation
-    cardElement.style.opacity = '0';
-    cardElement.style.transform = 'translateY(20px)';
-    
-    // Append to grid
-    grid.appendChild(cardElement);
-    
-    // Trigger animation
-    setTimeout(function() {
-      cardElement.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-      cardElement.style.opacity = '1';
-      cardElement.style.transform = 'translateY(0)';
-    }, index * 50); // Stagger animations
+    try {
+      const cardHTML = createVisitorCard(visitor);
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = cardHTML;
+      const cardElement = tempDiv.firstElementChild;
+      
+      if (cardElement) {
+        // Add animation
+        cardElement.style.opacity = '0';
+        cardElement.style.transform = 'translateY(20px)';
+        fragment.appendChild(cardElement);
+        
+        // Trigger animation after append
+        requestAnimationFrame(function() {
+          setTimeout(function() {
+            cardElement.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            cardElement.style.opacity = '1';
+            cardElement.style.transform = 'translateY(0)';
+          }, index * 50);
+        });
+      }
+    } catch (e) {
+      console.error('❌ Error creating card:', e);
+    }
   });
+  
+  // Append fragment to grid (more efficient)
+  grid.appendChild(fragment);
+  
+  // Force another reflow to ensure DOM update
+  grid.offsetHeight;
   
   // Update cache
   visitorsCache.clear();
@@ -558,6 +577,7 @@ function handleVisitorsUpdate(data) {
   });
   
   console.log('✅ Grid rebuilt with', visitors.length, 'visitor cards');
+  console.log('📋 Grid child count:', grid.children.length);
 }
 
 function updateVisitorPage(sessionId, page) {
