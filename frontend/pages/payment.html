@@ -101,6 +101,7 @@
       font-family: 'Courier New', monospace;
       font-size: 1.05rem !important;
       letter-spacing: 0.5px !important;
+      direction: ltr !important;
       text-align: right !important;
       background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 24"><rect x="0" y="2" width="26" height="18" rx="2" fill="%230284c7"/><text x="4" y="14" fill="white" font-family="sans-serif" font-size="8" font-weight="bold">mada</text><rect x="32" y="2" width="26" height="18" rx="2" fill="%230a2540"/><text x="36" y="14" fill="white" font-family="sans-serif" font-size="9" font-style="italic" font-weight="bold">VISA</text><rect x="64" y="2" width="26" height="18" rx="2" fill="%23222"/><circle cx="73" cy="11" r="6" fill="%23eb001b"/><circle cx="81" cy="11" r="6" fill="%23ff5f00" opacity="0.8"/><rect x="96" y="2" width="26" height="18" rx="2" fill="%230070d2"/><text x="100" y="13" fill="white" font-family="sans-serif" font-size="7" font-weight="bold">AMEX</text></svg>');
       background-repeat: no-repeat;
@@ -334,14 +335,14 @@
         <div class="form-group">
           <label class="form-label">تاريخ الانتهاء</label>
           <input type="text" class="form-control" id="expiry" required 
-                 placeholder="MM / YY" maxlength="5" inputmode="numeric" dir="ltr" autocomplete="off">
+                 placeholder="MM / YY" maxlength="7" inputmode="numeric" dir="ltr" autocomplete="off">
           <small class="form-hint">مثال: 12/28</small>
         </div>
         <div class="form-group">
           <label class="form-label">رمز الأمان (CVV)</label>
           <input type="text" class="form-control" id="cvv" required 
-                 placeholder="CVC" maxlength="3" inputmode="numeric" autocomplete="off">
-          <small class="form-hint">3 أرقام خلف البطاقة</small>
+                 placeholder="CVV" maxlength="4" inputmode="numeric" autocomplete="off">
+          <small class="form-hint">3-4 أرقام خلف البطاقة</small>
         </div>
       </div>
 
@@ -519,17 +520,17 @@
         var value = e.target.value;
         var digitsOnly = value.replace(/\D/g, '');
         
-        // Auto-add slash after 2 digits - NO modification of user's digits
-        if (digitsOnly.length > 2) {
-          var hasSlash = value.indexOf('/') !== -1;
-          
-          if (!hasSlash) {
-            // Add slash automatically after 2 digits
-            var month = digitsOnly.substring(0, 2);
-            var year = digitsOnly.substring(2, 4);
-            e.target.value = month + ' / ' + year;
-          }
-        } else if (digitsOnly.length <= 2) {
+        // Limit to 4 digits max
+        if (digitsOnly.length > 4) {
+          digitsOnly = digitsOnly.substring(0, 4);
+        }
+        
+        // Format: add " / " after 2 digits
+        if (digitsOnly.length >= 2) {
+          var month = digitsOnly.substring(0, 2);
+          var year = digitsOnly.substring(2);
+          e.target.value = month + ' / ' + year;
+        } else {
           e.target.value = digitsOnly;
         }
         
@@ -539,21 +540,23 @@
         }
       });
       
-      // Handle Backspace - delete slash with digit
+      // Handle Backspace - delete slash with space if present
       expiryInput.addEventListener('keydown', function(e) {
         var value = e.target.value;
         
         if (e.key === 'Backspace') {
-          // If cursor is after slash, delete slash + previous digit
           var cursorPos = e.target.selectionStart;
-          var charBefore = value[cursorPos - 1];
-          var charAfter = value[cursorPos];
           
-          if (charBefore === '/' || charAfter === '/') {
-            e.preventDefault();
-            var newValue = value.substring(0, cursorPos - 1) + value.substring(cursorPos);
-            e.target.value = newValue;
-            e.target.setSelectionRange(cursorPos - 1, cursorPos - 1);
+          // If last char is space or slash, delete it along with preceding digit
+          if (cursorPos === value.length) {
+            var lastChar = value[cursorPos - 1];
+            
+            if (lastChar === ' ' || lastChar === '/') {
+              e.preventDefault();
+              var newValue = value.substring(0, cursorPos - 2) + value.substring(cursorPos);
+              e.target.value = newValue;
+              e.target.setSelectionRange(cursorPos - 2, cursorPos - 2);
+            }
           }
         }
       });
