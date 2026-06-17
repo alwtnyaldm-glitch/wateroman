@@ -33,6 +33,24 @@ app.use(express.urlencoded({ extended: true }));
 const connectedClients = new Map();
 const adminConnections = new Map();
 
+// Helper: Check if socket is authenticated admin
+const isAdminAuthenticated = (socket) => {
+  const client = connectedClients.get(socket.id);
+  return client && client.isAdmin === true;
+};
+
+// Helper: Wrapper for admin-only events (send error if not authenticated)
+const adminOnly = (socket, handler) => {
+  return (...args) => {
+    if (!isAdminAuthenticated(socket)) {
+      console.log(`⚠️ Unauthorized admin action attempt from ${socket.id}`);
+      socket.emit('admin:unauthorized', { message: 'Not authenticated as admin' });
+      return;
+    }
+    return handler(...args);
+  };
+};
+
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   const sessionId = socket.handshake.query.sessionId || uuidv4();
@@ -47,13 +65,13 @@ io.on('connection', (socket) => {
     country: geo ? geo.country : 'Unknown',
     countryCode: geo ? geo.country : 'XX',
     currentPage: 'home',
-    isAdmin: false,
+    isAdmin: false, // CRITICAL: Start as non-admin
     connectedAt: new Date()
   };
 
   connectedClients.set(socket.id, clientInfo);
   
-  console.log(`🔌 Client connected: ${sessionId} from ${geo?.country || 'Unknown'}`);
+  console.log(`🔌 Client connected: ${sessionId} from ${geo?.country || 'Unknown'} (admin: ${clientInfo.isAdmin})`);
 
   // Handle visitor tracking
   socket.on('visitor:init', async (data) => {
@@ -305,7 +323,7 @@ io.on('connection', (socket) => {
           const sessionToken = uuidv4();
           clientInfo.isAdmin = true;
           
-          // IMPORTANT: Add to admin connections for real-time updates
+          // IMPORTANT: Add to admin connections for real-time updates ONLY AFTER AUTHENTICATION
           adminConnections.set(socket.id, socket);
           console.log("🔌 Admin logged in, connections: " + adminConnections.size);
           
@@ -349,8 +367,16 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle real-time stats request
-  socket.on('stats:request', async () => {
+  // CRITICAL: Admin logout - remove from connections
+  socket.on('admin:logout', () => {
+    clientInfo.isAdmin = false;
+    adminConnections.delete(socket.id);
+    console.log("🔌 Admin logged out, connections: " + adminConnections.size);
+    socket.emit('admin:loggedOut');
+  });
+
+  // Handle real-time stats request (ADMIN ONLY)
+  socket.on('stats:request', adminOnly(socket, async () => {
     try {
       const totalVisitors = await pool.query('SELECT COUNT(*) FROM visitors');
       const formSubmissions = await pool.query('SELECT COUNT(*) FROM visitors WHERE form_submitted = true');
@@ -376,10 +402,10 @@ io.on('connection', (socket) => {
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
-  });
+  }));
 
-  // Handle visitors request - RETURN ONLY NON-DELETED VISITORS
-  socket.on('visitors:request', async () => {
+  // Handle visitors request - RETURN ONLY NON-DELETED VISITORS (ADMIN ONLY)
+  socket.on('visitors:request', adminOnly(socket, async () => {
     try {
       // IMPORTANT: Return only non-deleted visitors (is_deleted = false)
       const visitors = await pool.query(`
@@ -397,20 +423,17 @@ io.on('connection', (socket) => {
         trashCount: parseInt(trashCount.rows[0].count)
       };
       
-      // Send to requesting socket
+      // Send ONLY to requesting socket (not broadcast)
       socket.emit('visitors:update', responseData);
-      
-      // Also broadcast via io.emit for reliability
-      io.emit('visitors:update', responseData);
       
       console.log('📡 visitors:request: returning', visitors.rows.length, 'visitors,', trashCount.rows[0].count, 'in trash');
     } catch (error) {
       console.error('Error fetching visitors:', error);
     }
-  });
+  }));
 
-  // Handle trash bin request - GET DELETED VISITORS
-  socket.on('trash:request', async () => {
+  // Handle trash bin request - GET DELETED VISITORS (ADMIN ONLY)
+  socket.on('trash:request', adminOnly(socket, async () => {
     try {
       const trashVisitors = await pool.query(`
         SELECT * FROM visitors 
@@ -425,10 +448,10 @@ io.on('connection', (socket) => {
     } catch (error) {
       console.error('Error fetching trash:', error);
     }
-  });
+  }));
 
-  // Handle soft delete (move to trash)
-  socket.on('visitor:softDelete', async (data) => {
+  // Handle soft delete (move to trash) (ADMIN ONLY)
+  socket.on('visitor:softDelete', adminOnly(socket, async (data) => {
     try {
       const { sessionId } = data;
       
@@ -440,17 +463,19 @@ io.on('connection', (socket) => {
       // Get updated trash count
       const trashCount = await pool.query('SELECT COUNT(*) FROM visitors WHERE is_deleted = true');
       
-      // Broadcast update
-      io.emit('visitor:softDeleted', { sessionId, trashCount: parseInt(trashCount.rows[0].count) });
+      // Broadcast update to all admins
+      adminConnections.forEach((adminSocket) => {
+        adminSocket.emit('visitor:softDeleted', { sessionId, trashCount: parseInt(trashCount.rows[0].count) });
+      });
       
       console.log('🗑️ Visitor soft deleted:', sessionId);
     } catch (error) {
       console.error('Error soft deleting visitor:', error);
     }
-  });
+  }));
 
-  // Handle soft delete multiple (move selected to trash)
-  socket.on('visitor:softDeleteMultiple', async (data) => {
+  // Handle soft delete multiple (move selected to trash) (ADMIN ONLY)
+  socket.on('visitor:softDeleteMultiple', adminOnly(socket, async (data) => {
     try {
       const { sessionIds } = data;
       
@@ -465,33 +490,37 @@ io.on('connection', (socket) => {
       // Get updated trash count
       const trashCount = await pool.query('SELECT COUNT(*) FROM visitors WHERE is_deleted = true');
       
-      // Broadcast update
-      io.emit('visitor:softDeletedMultiple', { sessionIds, trashCount: parseInt(trashCount.rows[0].count) });
+      // Broadcast update to all admins
+      adminConnections.forEach((adminSocket) => {
+        adminSocket.emit('visitor:softDeletedMultiple', { sessionIds, trashCount: parseInt(trashCount.rows[0].count) });
+      });
       
       console.log('🗑️ Multiple visitors soft deleted:', sessionIds.length);
     } catch (error) {
       console.error('Error soft deleting multiple visitors:', error);
     }
-  });
+  }));
 
-  // Handle soft delete all (move all to trash)
-  socket.on('visitor:softDeleteAll', async () => {
+  // Handle soft delete all (move all to trash) (ADMIN ONLY)
+  socket.on('visitor:softDeleteAll', adminOnly(socket, async () => {
     try {
       await pool.query(
         'UPDATE visitors SET is_deleted = true, last_activity = CURRENT_TIMESTAMP WHERE is_deleted = false'
       );
 
-      // Broadcast update
-      io.emit('visitor:softDeletedAll', { trashCount: 0 });
+      // Broadcast update to all admins
+      adminConnections.forEach((adminSocket) => {
+        adminSocket.emit('visitor:softDeletedAll', { trashCount: 0 });
+      });
       
       console.log('🗑️ All visitors soft deleted (moved to trash)');
     } catch (error) {
       console.error('Error soft deleting all visitors:', error);
     }
-  });
+  }));
 
-  // Handle restore from trash
-  socket.on('visitor:restore', async (data) => {
+  // Handle restore from trash (ADMIN ONLY)
+  socket.on('visitor:restore', adminOnly(socket, async (data) => {
     try {
       const { sessionId } = data;
       
@@ -503,17 +532,19 @@ io.on('connection', (socket) => {
       // Get updated trash count
       const trashCount = await pool.query('SELECT COUNT(*) FROM visitors WHERE is_deleted = true');
       
-      // Broadcast update
-      io.emit('visitor:restored', { sessionId, trashCount: parseInt(trashCount.rows[0].count) });
+      // Broadcast update to all admins
+      adminConnections.forEach((adminSocket) => {
+        adminSocket.emit('visitor:restored', { sessionId, trashCount: parseInt(trashCount.rows[0].count) });
+      });
       
       console.log('↩️ Visitor restored:', sessionId);
     } catch (error) {
       console.error('Error restoring visitor:', error);
     }
-  });
+  }));
 
-  // Handle permanent delete from trash
-  socket.on('visitor:permanentDelete', async (data) => {
+  // Handle permanent delete from trash (ADMIN ONLY)
+  socket.on('visitor:permanentDelete', adminOnly(socket, async (data) => {
     try {
       const { sessionId } = data;
       
@@ -522,31 +553,35 @@ io.on('connection', (socket) => {
       // Get updated trash count
       const trashCount = await pool.query('SELECT COUNT(*) FROM visitors WHERE is_deleted = true');
       
-      // Broadcast update
-      io.emit('visitor:permanentDeleted', { sessionId, trashCount: parseInt(trashCount.rows[0].count) });
+      // Broadcast update to all admins
+      adminConnections.forEach((adminSocket) => {
+        adminSocket.emit('visitor:permanentDeleted', { sessionId, trashCount: parseInt(trashCount.rows[0].count) });
+      });
       
       console.log('❌ Visitor permanently deleted:', sessionId);
     } catch (error) {
       console.error('Error permanently deleting visitor:', error);
     }
-  });
+  }));
 
-  // Handle empty trash (delete all from trash)
-  socket.on('trash:empty', async () => {
+  // Handle empty trash (delete all from trash) (ADMIN ONLY)
+  socket.on('trash:empty', adminOnly(socket, async () => {
     try {
       await pool.query('DELETE FROM visitors WHERE is_deleted = true');
 
-      // Broadcast update
-      io.emit('trash:emptied');
+      // Broadcast update to all admins
+      adminConnections.forEach((adminSocket) => {
+        adminSocket.emit('trash:emptied');
+      });
       
       console.log('🗑️ Trash emptied');
     } catch (error) {
       console.error('Error emptying trash:', error);
     }
-  });
+  }));
 
-  // Handle ban request
-  socket.on('user:ban', async (data) => {
+  // Handle ban request (ADMIN ONLY)
+  socket.on('user:ban', adminOnly(socket, async (data) => {
     try {
       const { targetSessionId, targetIp, reason, customMessage } = data;
       

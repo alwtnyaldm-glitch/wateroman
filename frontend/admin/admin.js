@@ -1573,15 +1573,18 @@ async function logoutAllDevices() {
   } catch (error) { console.error('Error logging out devices:', error); }
 }
 
-// Initialize
+// Initialize - SECURE: Socket connects but no data until login
 document.addEventListener('DOMContentLoaded', async () => {
+  // Connect socket but DON'T request data yet
   await initAdminSocket();
   
   if (!adminToken) {
     showLoginPage();
+    // Clear any existing data from memory
+    clearAdminData();
   } else {
-    showDashboard();
-    showTab('stats');
+    // Validate token first, then show dashboard
+    await validateAdminSession();
   }
   
   // Login form
@@ -1605,16 +1608,79 @@ document.addEventListener('DOMContentLoaded', async () => {
     await saveProduct(formData);
   });
   
-  // Logout button
+  // Logout button - SECURE: Disconnect socket and clear all data
   document.getElementById('logoutBtn')?.addEventListener('click', () => {
+    // Emit logout to server
+    if (socket && socket.connected) {
+      socket.emit('admin:logout');
+      socket.disconnect();
+    }
+    
+    // Clear all sensitive data
     localStorage.removeItem('admin_token');
     localStorage.removeItem('admin_user');
     adminToken = null;
+    
+    // Clear in-memory data
+    clearAdminData();
+    
+    // Show login page
     showLoginPage();
   });
   
   // NO MORE POLLING - Real-time updates via WebSockets!
 });
+
+// Clear all admin data from memory
+function clearAdminData() {
+  visitorsCache.clear();
+  selectedVisitors.clear();
+  
+  const grid = document.getElementById('visitorsGrid');
+  if (grid) grid.innerHTML = '';
+  
+  const trashGrid = document.getElementById('trashGrid');
+  if (trashGrid) trashGrid.innerHTML = '';
+  
+  updateTrashCount(0);
+  
+  // Clear stats
+  const onlineCount = document.getElementById('onlineCount');
+  const totalCount = document.getElementById('totalCount');
+  if (onlineCount) onlineCount.textContent = '0';
+  if (totalCount) totalCount.textContent = '0';
+  
+  console.log('🔒 Admin data cleared from memory');
+}
+
+// Validate admin session
+async function validateAdminSession() {
+  if (!socket || !socket.connected) {
+    showLoginPage();
+    return;
+  }
+  
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      showLoginPage();
+      resolve(false);
+    }, 5000);
+    
+    socket.emit('admin:validate', { sessionToken: adminToken });
+    
+    socket.once('admin:valid', (data) => {
+      clearTimeout(timeout);
+      if (data.valid) {
+        showDashboard();
+        showTab('stats');
+        resolve(true);
+      } else {
+        showLoginPage();
+        resolve(false);
+      }
+    });
+  });
+}
 
 // Export functions
 window.showTab = showTab;
@@ -1627,3 +1693,13 @@ window.deleteProduct = deleteProduct;
 window.resetProductForm = resetProductForm;
 window.logoutDevice = logoutDevice;
 window.logoutAllDevices = logoutAllDevices;
+window.clearAdminData = clearAdminData;
+
+// Trash bin functions
+window.softDeleteVisitor = softDeleteVisitor;
+window.softDeleteSelected = softDeleteSelected;
+window.softDeleteAll = softDeleteAll;
+window.restoreVisitor = restoreVisitor;
+window.permanentDeleteVisitor = permanentDeleteVisitor;
+window.emptyTrash = emptyTrash;
+window.toggleVisitorSelection = toggleVisitorSelection;
