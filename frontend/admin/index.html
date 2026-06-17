@@ -81,6 +81,32 @@
         </div>
       </aside>
 
+      <!-- Mobile Tab Bar - Fixed at bottom -->
+      <nav class="mobile-tab-bar" style="display: none;">
+        <ul class="sidebar-nav">
+          <li><a href="#" class="sidebar-link active" data-tab="stats" onclick="showTab('stats'); return false;">
+            <span class="icon">📊</span>
+            <span>الإحصائيات</span>
+          </a></li>
+          <li><a href="#" class="sidebar-link" data-tab="tracking" onclick="showTab('tracking'); return false;">
+            <span class="icon">👥</span>
+            <span>المتابعة</span>
+          </a></li>
+          <li><a href="#" class="sidebar-link" data-tab="products" onclick="showTab('products'); return false;">
+            <span class="icon">📦</span>
+            <span>المنتجات</span>
+          </a></li>
+          <li><a href="#" class="sidebar-link" data-tab="banned" onclick="showTab('banned'); return false;">
+            <span class="icon">🚫</span>
+            <span>المحظورين</span>
+          </a></li>
+          <li><a href="#" class="sidebar-link" data-tab="trash" onclick="showTab('trash'); return false;">
+            <span class="icon">🗑️</span>
+            <span>المهملات</span>
+          </a></li>
+        </ul>
+      </nav>
+
       <!-- Main Content -->
       <main class="main-content">
         <header class="page-header">

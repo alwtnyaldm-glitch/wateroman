@@ -1938,11 +1938,27 @@ function unbanUser(banId) {
 
 // Tab Navigation
 function showTab(tabId) {
+  // Hide all tabs
   document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-  document.querySelectorAll('.sidebar-link').forEach(link => link.classList.remove('active'));
-  document.getElementById(tabId)?.classList.add('active');
-  document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
   
+  // Remove active from ALL sidebar links (desktop + mobile)
+  document.querySelectorAll('.sidebar-link').forEach(link => link.classList.remove('active'));
+  
+  // Show selected tab
+  document.getElementById(tabId)?.classList.add('active');
+  
+  // Activate corresponding sidebar link (works for both desktop and mobile)
+  document.querySelectorAll(`[data-tab="${tabId}"]`).forEach(link => {
+    link.classList.add('active');
+  });
+  
+  // Scroll mobile tab into view
+  const activeMobileLink = document.querySelector(`.mobile-tab-bar [data-tab="${tabId}"]`);
+  if (activeMobileLink) {
+    activeMobileLink.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }
+  
+  // Load data for specific tabs
   if (tabId === 'stats') { updateStats(); }
   else if (tabId === 'tracking') { updateVisitorsList(); }
   else if (tabId === 'products') { loadProducts(); }
@@ -2178,6 +2194,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Show login page initially - NO socket connection until login
   showLoginPage();
   clearAdminData();
+  
+  // Mobile tab bar - Show/hide based on screen size
+  const mobileTabBar = document.querySelector('.mobile-tab-bar');
+  const checkMobile = () => {
+    if (window.innerWidth <= 768) {
+      mobileTabBar.style.display = 'flex';
+    } else {
+      mobileTabBar.style.display = 'none';
+    }
+  };
+  checkMobile();
+  window.addEventListener('resize', checkMobile);
   
   // Login form
   document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
