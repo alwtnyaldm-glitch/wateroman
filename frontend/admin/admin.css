@@ -419,6 +419,369 @@ body {
   border-bottom: 1px solid var(--border-color);
 }
 
+/* ==========================================
+   NEW VISITOR CARD DESIGN
+   ========================================== */
+
+.visitor-card-new {
+  background: var(--bg-card);
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  transition: var(--transition);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+}
+
+.visitor-card-new:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+/* Card Header */
+.card-header-new {
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: white;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.country-flag {
+  font-size: 24px;
+}
+
+.visitor-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: white;
+}
+
+.online-status {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 100px;
+  background: rgba(255,255,255,0.15);
+}
+
+.online-status.online {
+  color: #4ade80;
+}
+
+.online-status.offline {
+  color: #9ca3af;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-badge {
+  padding: 5px 12px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+/* Data Boxes Container */
+.data-boxes-container {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  background: #0f172a;
+}
+
+/* Data Box */
+.data-box {
+  flex: 1;
+  background: #1e293b;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.data-box.empty {
+  opacity: 0.6;
+}
+
+.delivery-box {
+  background: linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.payment-box {
+  background: linear-gradient(135deg, #1e293b 0%, #1e3a5f 100%);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.box-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(0,0,0,0.25);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.box-icon {
+  font-size: 16px;
+}
+
+.box-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.box-content {
+  padding: 12px;
+}
+
+.data-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.data-item:last-child {
+  border-bottom: none;
+}
+
+.data-item .data-label {
+  font-size: 11px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.data-item .data-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f1f5f9;
+  text-align: right;
+  word-break: break-word;
+}
+
+.delivery-box .data-value {
+  color: #bfdbfe;
+}
+
+.payment-box .data-value {
+  color: #a7f3d0;
+}
+
+.no-data {
+  text-align: center;
+  padding: 20px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+/* OTP Section */
+.otp-section-new {
+  padding: 16px 18px;
+  background: linear-gradient(135deg, #312e81 0%, #1e1b4b 100%);
+  border-top: 1px solid rgba(99, 102, 241, 0.3);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.otp-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+.otp-icon {
+  font-size: 20px;
+}
+
+.otp-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #c7d2fe;
+}
+
+.otp-count {
+  margin-right: auto;
+  font-size: 11px;
+  color: #a5b4fc;
+  background: rgba(99, 102, 241, 0.3);
+  padding: 2px 8px;
+  border-radius: 100px;
+}
+
+.otp-display {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.otp-digit-new {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 56px;
+  background: rgba(255,255,255,0.15);
+  border: 2px solid rgba(165, 180, 252, 0.5);
+  border-radius: 10px;
+  font-size: 28px;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.otp-empty {
+  font-size: 24px;
+  color: #6366f1;
+  letter-spacing: 4px;
+}
+
+.otp-history-dropdown {
+  margin-top: 12px;
+  padding: 10px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 8px;
+  display: none;
+}
+
+.otp-history-dropdown.show {
+  display: block;
+}
+
+.otp-history-item {
+  padding: 6px 0;
+  font-size: 12px;
+  color: #c7d2fe;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.otp-history-item:last-child {
+  border-bottom: none;
+}
+
+/* Card Footer */
+.card-footer {
+  padding: 14px 18px;
+  background: #0f172a;
+}
+
+.progress-badges {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.progress-badge {
+  padding: 6px 14px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.1);
+  color: #94a3b8;
+}
+
+.progress-badge.done {
+  background: rgba(16, 185, 129, 0.2);
+  color: #4ade80;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.progress-badge.pending {
+  background: rgba(255, 255, 255, 0.05);
+  color: #64748b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn span {
+  font-size: 16px;
+}
+
+.action-btn.ban {
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  color: white;
+}
+
+.action-btn.ban:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  transform: translateY(-1px);
+}
+
+.action-btn.delete {
+  background: linear-gradient(135deg, #475569 0%, #334155 100%);
+  color: white;
+}
+
+.action-btn.delete:hover {
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+}
+
+.action-btn.restore {
+  background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+  color: white;
+}
+
+.action-btn.restore:hover {
+  background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+}
+
+.action-btn.delete-permanent {
+  background: linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%);
+  color: white;
+}
+
+.action-btn.delete-permanent:hover {
+  background: linear-gradient(135deg, #991b1b 0%, #7f1d1d 100%);
+}
+
+.visitor-checkbox {
+  width: 20px;
+  height: 20px;
+  accent-color: #6366f1;
+  cursor: pointer;
+}
+
 .section-title span { font-size: 16px; }
 
 .data-row {
@@ -1123,154 +1486,105 @@ body {
     gap: 16px;
   }
   
-  .visitor-card {
+  .visitor-card-new {
     margin-bottom: 16px;
     border-radius: 16px;
-    border: 1px solid rgba(99, 102, 241, 0.3);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    background: #1e293b;
   }
   
-  .visitor-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #6366f1, #8b5cf6);
-    border-radius: 16px 16px 0 0;
-  }
-  
-  .card-header {
-    flex-direction: column;
-    gap: 8px;
-    text-align: center;
-    padding: 16px;
-  }
-  
-  .card-title {
-    font-size: 18px;
-    font-weight: 700;
-  }
-  
-  /* Make important data larger on mobile */
-  .card-body {
-    padding: 16px;
-  }
-  
-  .data-grid {
-    gap: 16px;
-  }
-  
-  .data-field .data-value {
-    font-size: 16px !important;
-    font-weight: 600;
-  }
-  
-  .data-field .data-label {
-    font-size: 10px;
-  }
-  
-  /* ===== PAYMENT DATA - MOBILE ===== */
-  .payment-section {
-    padding: 16px;
-  }
-  
-  .payment-section .data-row {
-    padding: 12px 0;
-    border-bottom: 1px solid rgba(51, 65, 85, 0.5);
-  }
-  
-  .payment-section .data-label {
-    font-size: 11px;
-    color: #94a3b8;
-    margin-bottom: 4px;
-  }
-  
-  .payment-section .data-value {
-    font-size: 16px;
-    font-weight: 600;
-    word-break: break-all;
-  }
-  
-  /* Card number - full width, large */
-  .payment-section .data-value:has(+ .data-label:contains("البطاقة")),
-  .data-field:has(.data-label:contains("البطاقة")) .data-value {
-    font-size: 18px !important;
-    font-family: 'Courier New', monospace;
-    letter-spacing: 2px;
-  }
-  
-  /* ===== OTP - MOBILE ===== */
-  .otp-section {
-    padding: 20px;
-    margin: 16px 0;
-  }
-  
-  .otp-boxes {
-    gap: 8px;
-  }
-  
-  .otp-digit {
-    width: 42px;
-    height: 52px;
-    font-size: 24px;
-    border-radius: 10px;
-  }
-  
-  .otp-value {
-    font-size: 32px;
-    letter-spacing: 6px;
-  }
-  
-  /* ===== BUTTONS - MOBILE ===== */
-  .card-actions {
-    padding: 12px 16px;
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-  }
-  
-  .card-actions .btn {
-    flex: 1;
-    padding: 14px 16px;
-    font-size: 14px;
-    border-radius: 12px;
-  }
-  
-  /* ===== DATA ROWS - MOBILE ===== */
-  .data-row {
+  .card-header-new {
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;
-    padding: 10px 0;
+    gap: 10px;
+    padding: 14px;
   }
   
-  .data-row .data-label {
-    font-size: 11px;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+  .header-left {
+    width: 100%;
+    justify-content: flex-start;
   }
   
-  .data-row .data-value {
+  .visitor-name {
     font-size: 15px;
-    font-weight: 500;
-    text-align: right;
+  }
+  
+  .header-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  /* Data Boxes - Stack vertically on mobile */
+  .data-boxes-container {
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+  }
+  
+  .data-box {
     width: 100%;
   }
   
-  /* ===== PROGRESS STEPS - MOBILE ===== */
-  .progress-steps {
-    flex-wrap: wrap;
+  .box-content {
+    padding: 10px;
+  }
+  
+  .data-item {
+    padding: 10px 0;
+  }
+  
+  .data-item .data-label {
+    font-size: 10px;
+    margin-bottom: 4px;
+  }
+  
+  .data-item .data-value {
+    font-size: 15px !important;
+    font-weight: 600;
+  }
+  
+  /* OTP Section - Mobile */
+  .otp-section-new {
+    padding: 14px;
+  }
+  
+  .otp-digit-new {
+    width: 40px;
+    height: 50px;
+    font-size: 24px;
+  }
+  
+  .otp-display {
+    gap: 6px;
+  }
+  
+  /* Progress & Actions - Mobile */
+  .card-footer {
+    padding: 12px 14px;
+  }
+  
+  .progress-badges {
     gap: 8px;
+    margin-bottom: 12px;
   }
   
   .progress-badge {
-    padding: 8px 14px;
+    padding: 5px 12px;
+    font-size: 11px;
+  }
+  
+  .action-buttons {
+    flex-direction: row;
+    gap: 8px;
+  }
+  
+  .action-btn {
+    flex: 1;
+    padding: 12px 10px;
     font-size: 12px;
-    border-radius: 20px;
+    justify-content: center;
+  }
+  
+  .action-btn span {
+    font-size: 14px;
   }
   
   /* ===== MODAL - MOBILE ===== */
