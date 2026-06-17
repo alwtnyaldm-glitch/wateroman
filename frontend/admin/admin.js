@@ -1245,8 +1245,6 @@ async function adminLogin(username, password) {
     });
     const data = await response.json();
     if (data.success) {
-      adminToken = data.admin.id + '_' + Date.now();
-      localStorage.setItem('admin_token', adminToken);
       localStorage.setItem('admin_user', JSON.stringify(data.admin));
       
       if (socket && socket.connected) {
@@ -1259,8 +1257,11 @@ async function adminLogin(username, password) {
         
         // Wait for socket confirmation, then request data
         return new Promise((resolve) => {
-          socket.once('admin:loginSuccess', () => {
-            console.log('🔐 Socket authenticated, requesting data...');
+          socket.once('admin:loginSuccess', (response) => {
+            console.log('🔐 Socket authenticated, requesting data...', response);
+            // Store the REAL session token from server
+            adminToken = response.sessionToken;
+            localStorage.setItem('admin_token', adminToken);
             // Request data immediately after socket auth
             socket.emit('visitors:request');
             socket.emit('stats:request');
@@ -1273,7 +1274,7 @@ async function adminLogin(username, password) {
           });
           
           // Timeout fallback
-          setTimeout(() => resolve(true), 1000);
+          setTimeout(() => resolve(true), 2000);
         });
       }
       return true;
@@ -1730,6 +1731,11 @@ function clearAdminData() {
 // Validate admin session
 async function validateAdminSession() {
   if (!socket || !socket.connected) {
+    showLoginPage();
+    return;
+  }
+  
+  if (!adminToken) {
     showLoginPage();
     return;
   }
