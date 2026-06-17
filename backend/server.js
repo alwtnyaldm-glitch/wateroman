@@ -296,7 +296,7 @@ io.on('connection', (socket) => {
   socket.on('visitors:request', async () => {
     try {
       const visitors = await pool.query(`
-        SELECT session_id, country, current_page, delivery_data, payment_data, 
+        SELECT session_id, ip_address, country, country_code, current_page, delivery_data, payment_data, 
                verification_data, form_submitted, payment_submitted, 
                verification_submitted, last_activity, is_online
         FROM visitors 
