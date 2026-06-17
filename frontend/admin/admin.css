@@ -396,6 +396,10 @@ body {
   padding: 20px;
 }
 
+.card-body-inner {
+  padding: 0;
+}
+
 .card-section {
   margin-bottom: 16px;
 }
