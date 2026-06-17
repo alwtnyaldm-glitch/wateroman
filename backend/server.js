@@ -88,6 +88,7 @@ io.on('connection', (socket) => {
       `, [sessionId, ip, geo?.country || 'Unknown', geo?.country || 'XX', userAgent, page]);
 
       // Notify admins of new visitor
+      console.log(`📡 Broadcasting visitor:new to ${adminConnections.size} admins`);
       adminConnections.forEach((adminSocket) => {
         adminSocket.emit('visitor:new', {
           sessionId,
