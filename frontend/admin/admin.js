@@ -213,8 +213,7 @@ function setupSocketListeners() {
 
   socket.on('visitor:pageChange', (data) => {
     console.log('📄 DATA RECEIVED VIA SOCKET (visitor:pageChange):', data);
-    // Play gentle notification when visitor changes page
-    playPageChangeSound();
+    // NO SOUND - page changes should be silent
     // Update card and move to top (smart update, not full refresh)
     updateCardAndMoveToTop(data.sessionId, data);
   });
@@ -975,10 +974,64 @@ function moveCardToTop(sessionId) {
 
 // Update card data and move to top (for real-time form updates)
 function updateCardAndMoveToTop(sessionId, data) {
-  // Update the card with new data
-  updateVisitorCard(sessionId, data);
-  // Move to top after data update
-  setTimeout(() => moveCardToTop(sessionId), 50);
+  // First move to top immediately for visibility
+  moveCardToTop(sessionId);
+  
+  // Then update the card with new data
+  // If card doesn't exist, trigger full refresh
+  const card = document.querySelector('[data-session="' + sessionId + '"]');
+  if (card) {
+    // Update the existing card with new data
+    updateVisitorCardData(card, data);
+    // Add highlight animation to show update
+    card.style.boxShadow = '0 0 20px var(--primary)';
+    setTimeout(() => {
+      card.style.boxShadow = '';
+    }, 500);
+  } else {
+    // Card not found - request full refresh
+    updateVisitorsList();
+  }
+}
+
+// Update card with new data (inline update, no full rebuild)
+function updateVisitorCardData(card, data) {
+  if (!card || !data) return;
+  
+  // Update data attributes
+  if (data.is_online !== undefined) {
+    card.setAttribute('data-online', data.is_online);
+    
+    // Update header color based on status
+    const header = card.querySelector('.card-header');
+    const statusEl = card.querySelector('.card-status');
+    if (data.is_online === true) {
+      header.style.background = 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)';
+      if (statusEl) {
+        statusEl.innerHTML = '<span class="dot"></span><span>متصل الآن</span>';
+      }
+    } else {
+      header.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+      if (statusEl) {
+        statusEl.innerHTML = '<span class="dot offline"></span><span>غير متصل</span>';
+      }
+    }
+  }
+  
+  // Update page info if present
+  if (data.current_page) {
+    const pageEl = card.querySelector('.card-page');
+    if (pageEl) pageEl.textContent = getPageName(data.current_page);
+  }
+  
+  // Update last activity timestamp
+  if (data.last_activity) {
+    const timeEl = card.querySelector('.card-time');
+    if (timeEl) {
+      const date = new Date(data.last_activity);
+      timeEl.textContent = formatTimeAgo(date);
+    }
+  }
 }
 
 function updateVisitorStatus(sessionId, isOnline) {
@@ -1195,11 +1248,32 @@ async function adminLogin(username, password) {
       adminToken = data.admin.id + '_' + Date.now();
       localStorage.setItem('admin_token', adminToken);
       localStorage.setItem('admin_user', JSON.stringify(data.admin));
-      if (socket) {
+      
+      if (socket && socket.connected) {
+        // Emit admin login via socket
         socket.emit('admin:login', {
           username,
           password: '',
           deviceInfo: { userAgent: navigator.userAgent, platform: navigator.platform }
+        });
+        
+        // Wait for socket confirmation, then request data
+        return new Promise((resolve) => {
+          socket.once('admin:loginSuccess', () => {
+            console.log('🔐 Socket authenticated, requesting data...');
+            // Request data immediately after socket auth
+            socket.emit('visitors:request');
+            socket.emit('stats:request');
+            resolve(true);
+          });
+          
+          socket.once('admin:loginFailed', () => {
+            console.error('❌ Socket authentication failed');
+            resolve(false);
+          });
+          
+          // Timeout fallback
+          setTimeout(() => resolve(true), 1000);
         });
       }
       return true;
@@ -1673,6 +1747,9 @@ async function validateAdminSession() {
       if (data.valid) {
         showDashboard();
         showTab('stats');
+        // Request data after validation
+        socket.emit('visitors:request');
+        socket.emit('stats:request');
         resolve(true);
       } else {
         showLoginPage();
