@@ -1271,6 +1271,23 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Format timestamp to relative time (Arabic)
+function formatTimeAgo(timestamp) {
+  if (!timestamp) return 'الآن';
+  const date = new Date(timestamp);
+  const now = new Date();
+  const seconds = Math.floor((now - date) / 1000);
+  
+  if (seconds < 60) return 'الآن';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return 'منذ ' + minutes + ' دقيقة';
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return 'منذ ' + hours + ' ساعة';
+  const days = Math.floor(hours / 24);
+  if (days < 7) return 'منذ ' + days + ' يوم';
+  return date.toLocaleDateString('ar-OM');
+}
+
 // Update card data and move to top (for real-time form updates)
 function updateCardAndMoveToTop(sessionId, data) {
   // Use the main processing function
